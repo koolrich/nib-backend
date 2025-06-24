@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.env
+venv/
+.envrc
+
+# Lambda layer and function builds
+layer/python/
+local_layer/python/
+**/package/
+**/*.zip
+
+# Test artifacts
+.coverage
+htmlcov/
+pytest_cache/
+
+# IDEs and system files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Terraform (if colocated)
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+crash.log
