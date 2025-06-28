@@ -49,3 +49,8 @@ variable "db_user" {
   type = string
 }
 
+variable "db_name" {
+  default = "nibdb"
+  type    = string
+}
+

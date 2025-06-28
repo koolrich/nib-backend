@@ -5,6 +5,7 @@ __pycache__/
 *.egg-info/
 .env
 venv/
+.venv/
 .envrc
 
 # Lambda layer and function builds

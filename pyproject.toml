@@ -1,0 +1,30 @@
+[project]
+name = "nib-backend"
+version = "0.1.0"
+description = "NIB Backend Project"
+authors = [
+    {name = "Richard Nduka"}
+]
+readme = "README.md"
+requires-python = ">=3.13,<4.0.0"
+dependencies = [
+    "psycopg[binary] (==3.2.9)",
+    "boto3 (>=1.38.44,<2.0.0)",
+    "aws-lambda-powertools[parser] (==3.15.1)",
+    "pydantic (==2.11.7)"
+]
+
+[tool.poetry]
+packages = [
+  { include = "functions", from = "src" },
+  { include = "shared", from = "src" }
+]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-mock = "^3.14.1"
+moto = { extras = ["sns"], version = "^5.1.6"}
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

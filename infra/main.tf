@@ -87,9 +87,10 @@ resource "random_password" "db_password" {
 }
 
 resource "aws_ssm_parameter" "db_username" {
-  name  = "/nib/db/username"
-  type  = "String"
-  value = var.db_user
+  name        = "/nib/db/username"
+  type        = "String"
+  value       = var.db_user
+  description = "RDS DB User"
 
   tags = {
     Project = "nib"
@@ -97,9 +98,10 @@ resource "aws_ssm_parameter" "db_username" {
 }
 
 resource "aws_ssm_parameter" "db_password" {
-  name  = "/nib/db/password"
-  type  = "SecureString"
-  value = random_password.db_password.result
+  name        = "/nib/db/password"
+  type        = "SecureString"
+  value       = random_password.db_password.result
+  description = "RDS DB Password"
 
   tags = {
     Project = "nib"
@@ -128,6 +130,44 @@ resource "aws_db_instance" "nib_rds" {
   }
 }
 
+output "rds_endpoint" {
+  value = aws_db_instance.nib_rds.address
+}
+
+output "rds_port" {
+  value = aws_db_instance.nib_rds.port
+}
+
+resource "aws_ssm_parameter" "db_host" {
+  name        = "nib/db/host"
+  type        = "String"
+  value       = aws_db_instance.nib_rds.address
+  description = "RDS DB Host"
+  tags = {
+    Project = "nib"
+  }
+}
+
+resource "aws_ssm_parameter" "db_port" {
+  name        = "nib/db/port"
+  type        = "String"
+  value       = aws_db_instance.nib_rds.port
+  description = "RDS DB Port"
+  tags = {
+    Project = "nib"
+  }
+}
+
+resource "aws_ssm_parameter" "db_name" {
+  name        = "nib/db/name"
+  type        = "String"
+  value       = aws_db_instance.nib_rds.db_name
+  description = "RDS DB Name"
+  tags = {
+    Project = "nib"
+  }
+}
+
 resource "aws_cognito_user_pool" "nib_user_pool" {
   name = "nib-user-pool"
 
@@ -135,6 +175,9 @@ resource "aws_cognito_user_pool" "nib_user_pool" {
     minimum_length    = 8
     require_numbers   = true
     require_lowercase = true
+  }
+  tags = {
+    Project = "nib"
   }
 }
 
@@ -147,7 +190,6 @@ resource "aws_cognito_user_pool_client" "nib_app_client" {
     "ALLOW_REFRESH_TOKEN_AUTH",
     "ALLOW_USER_SRP_AUTH"
   ]
-
   generate_secret = false
 }
 

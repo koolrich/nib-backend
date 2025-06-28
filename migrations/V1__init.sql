@@ -20,8 +20,9 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS invites (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id),
-  activation_code TEXT NOT NULL UNIQUE
-  invited_by INTEGER NOT NULL REFERENCES users(id)
+  activation_code TEXT NOT NULL UNIQUE,
+  invited_by UUID NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS memberships (
