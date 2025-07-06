@@ -1,72 +1,28 @@
-provider "aws" {
-  region = var.aws_region
-
-  assume_role {
-    role_arn     = var.role_arn
-    session_name = var.role_session_name
-  }
-}
-
-
-resource "aws_vpc" "nib_vpc" {
-  cidr_block = "10.0.0.0/16"
-
-  tags = {
-    Project = "nib"
-    Name    = "nib-vpc"
-  }
-}
-
-resource "aws_subnet" "nib_subnets" {
-  for_each = var.subnets
-
-  vpc_id            = aws_vpc.nib_vpc.id
-  cidr_block        = each.value.cidr
-  availability_zone = "${var.aws_region}${each.value.az}"
-
-  tags = {
-    Project = "nib"
-    Name    = each.key
+locals {
+  common_tags = {
+    Project = var.project,
+    Environment = var.environment
   }
 }
 
 resource "aws_db_subnet_group" "nib_db_subnet_group" {
-  name       = "main"
-  subnet_ids = [for subnet in aws_subnet.nib_subnets : subnet.id]
+  name       = var.db_subnet_group_name
+  subnet_ids = var.subnet_ids
 
-  tags = {
-    Project = "nib"
-    Name    = "nib-db-subnet-group"
-  }
-}
-
-resource "aws_security_group" "nib_lambda_sg" {
-  name        = "nib-lambda-sg"
-  description = "Security group for NIB Lambda functions"
-  vpc_id      = aws_vpc.nib_vpc.id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name    = "nib-lambda-sg"
-    Project = "nib"
-  }
+  tags = merge(local.common_tags, {
+    Name = var.db_subnet_group_name
+  })
 }
 
 resource "aws_security_group" "nib_rds_sg" {
   name   = "nib-rds-sg"
-  vpc_id = aws_vpc.nib_vpc.id
+  vpc_id = var.vpc_id
 
   ingress {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.nib_lambda_sg.id]
+    security_groups = [var.lambda_sg_id]
   }
 
   egress {
@@ -76,10 +32,9 @@ resource "aws_security_group" "nib_rds_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name    = "nib-rds-sg"
-    Project = "nib"
-  }
+  tags = merge(local.common_tags, {
+    Name = "nib-rds-sg"
+  })
 }
 
 resource "random_password" "db_password" {
@@ -93,9 +48,7 @@ resource "aws_ssm_parameter" "db_username" {
   value       = var.db_user
   description = "RDS DB User"
 
-  tags = {
-    Project = "nib"
-  }
+  tags = local.common_tags
 }
 
 resource "aws_ssm_parameter" "db_password" {
@@ -104,9 +57,7 @@ resource "aws_ssm_parameter" "db_password" {
   value       = random_password.db_password.result
   description = "RDS DB Password"
 
-  tags = {
-    Project = "nib"
-  }
+ tags = local.common_tags
 }
 
 resource "aws_db_instance" "nib_rds" {
@@ -125,10 +76,9 @@ resource "aws_db_instance" "nib_rds" {
   publicly_accessible    = false
   skip_final_snapshot    = true
 
-  tags = {
-    Name    = "nib-rds"
-    Project = "nib"
-  }
+  tags = merge(local.common_tags, {
+    Name = "nib-rds"
+  })
 }
 
 resource "aws_ssm_parameter" "db_host" {
@@ -136,9 +86,7 @@ resource "aws_ssm_parameter" "db_host" {
   type        = "String"
   value       = aws_db_instance.nib_rds.address
   description = "RDS DB Host"
-  tags = {
-    Project = "nib"
-  }
+  tags = local.common_tags
 }
 
 resource "aws_ssm_parameter" "db_port" {
@@ -146,9 +94,7 @@ resource "aws_ssm_parameter" "db_port" {
   type        = "String"
   value       = aws_db_instance.nib_rds.port
   description = "RDS DB Port"
-  tags = {
-    Project = "nib"
-  }
+  tags = local.common_tags
 }
 
 resource "aws_ssm_parameter" "db_name" {
@@ -156,34 +102,5 @@ resource "aws_ssm_parameter" "db_name" {
   type        = "String"
   value       = aws_db_instance.nib_rds.db_name
   description = "RDS DB Name"
-  tags = {
-    Project = "nib"
-  }
+  tags = local.common_tags
 }
-
-resource "aws_cognito_user_pool" "nib_user_pool" {
-  name = "nib-user-pool"
-
-  password_policy {
-    minimum_length    = 8
-    require_numbers   = true
-    require_lowercase = true
-  }
-  tags = {
-    Project = "nib"
-  }
-}
-
-resource "aws_cognito_user_pool_client" "nib_app_client" {
-  name         = "nib-app-client"
-  user_pool_id = aws_cognito_user_pool.nib_user_pool.id
-
-  explicit_auth_flows = [
-    "ALLOW_USER_PASSWORD_AUTH",
-    "ALLOW_REFRESH_TOKEN_AUTH",
-    "ALLOW_USER_SRP_AUTH"
-  ]
-  generate_secret = false
-}
-
-

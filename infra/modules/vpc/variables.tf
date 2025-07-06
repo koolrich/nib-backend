@@ -3,12 +3,25 @@ variable "aws_region" {
   default = "eu-west-2"
 }
 
-variable "role_arn" {
-  type = string
+variable "cidr_block" {
+  type        = string
+  description = "CIDR block for the VPC"
 }
 
-variable "role_session_name" {
-  type = string
+variable "project" {
+  type        = string
+  description = "Project name tag"
+}
+
+variable "environment" {
+  type        = string
+  description = "Environment"
+}
+
+
+variable "name" {
+  type        = string
+  description = "VPC name tag"
 }
 
 variable "subnets" {
@@ -44,13 +57,3 @@ variable "subnets" {
     error_message = "Each 'az' must be a single lowercase letter (e.g., 'a', 'b', 'c')."
   }
 }
-
-variable "db_user" {
-  type = string
-}
-
-variable "db_name" {
-  default = "nibdb"
-  type    = string
-}
-

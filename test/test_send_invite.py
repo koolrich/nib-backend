@@ -5,14 +5,6 @@ import functions.send_invite.send_invite as send_invite
 from utils import generate_context, generate_api_gw_event
 
 
-def get_mock_lambda_context():
-    context = MagicMock()
-    context.function_name = "send_invite"
-    context.function_version = "1"
-    context.aws_request_id = "test-id"
-    return context
-
-
 @patch("boto3.client")
 @patch("functions.send_invite.send_invite.get_connection")
 def test_handler_200_Ok(mock_get_connection, mock_boto_client, mock_db, mock_sns):
