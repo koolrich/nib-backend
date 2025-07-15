@@ -62,7 +62,7 @@ resource "aws_ssm_parameter" "db_password" {
 resource "aws_db_instance" "nib_db" {
   identifier             = "nib-db"
   engine                 = "postgres"
-  engine_version         = "15.5"
+  engine_version         = "15.13"
   instance_class         = "db.t4g.micro"
   allocated_storage      = 20
   storage_type           = "gp2"

@@ -124,6 +124,11 @@ resource "aws_iam_role_policy_attachment" "lambda_attach" {
   policy_arn = aws_iam_policy.nib_lambda_policy.arn
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.nib_lambda_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 
 resource "aws_lambda_layer_version" "shared_layer" {
   s3_bucket           = var.lambda_artifact_bucket
