@@ -63,3 +63,7 @@ VALUES
     ('invite_status', 'used', 'Invite Used', 3, TRUE),
     ('invite_status', 'expired', 'Expired', 4, TRUE),
     ('invite_status', 'cancelled', 'Cancelled', 5, TRUE)
+ON CONFLICT (category, code) DO UPDATE
+SET label = EXCLUDED.label,
+    sort_order = EXCLUDED.sort_order,
+    is_active = EXCLUDED.is_active;

@@ -31,6 +31,12 @@ jobs:
       - name: Run Tests
         run: poetry run pytest
 
+      - name: Configure AWS Credentials (OIDC Assume Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::021891595998:role/TerraformUserRole
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Package Layer
         run: |
           cd src/layer
@@ -46,12 +52,6 @@ jobs:
             zip -r "$name.zip" "$fn"
             aws s3 cp "$name.zip" "s3://$S3_BUCKET/functions/$name.zip"
           done
-
-      - name: Configure AWS Credentials (OIDC Assume Role)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::021891595998:role/TerraformUserRole
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload Layer Artifact to S3
         run: |
