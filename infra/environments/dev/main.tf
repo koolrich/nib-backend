@@ -61,7 +61,7 @@ module "cognito" {
 }
 
 resource "aws_iam_role" "nib_lambda_execution_role" {
-  name = "NIBLambdaExecutionRole"
+  name = "NIBLambdaExecutionRole-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
