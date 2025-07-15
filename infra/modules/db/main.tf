@@ -81,7 +81,7 @@ resource "aws_db_instance" "nib_db" {
 }
 
 resource "aws_ssm_parameter" "db_host" {
-  name        = "nib/db/host"
+  name        = "/nib/db/host"
   type        = "String"
   value       = aws_db_instance.nib_db.address
   description = "RDS DB Host"
@@ -89,7 +89,7 @@ resource "aws_ssm_parameter" "db_host" {
 }
 
 resource "aws_ssm_parameter" "db_port" {
-  name        = "nib/db/port"
+  name        = "/nib/db/port"
   type        = "String"
   value       = aws_db_instance.nib_db.port
   description = "RDS DB Port"
@@ -97,7 +97,7 @@ resource "aws_ssm_parameter" "db_port" {
 }
 
 resource "aws_ssm_parameter" "db_name" {
-  name        = "nib/db/name"
+  name        = "/nib/db/name"
   type        = "String"
   value       = aws_db_instance.nib_db.db_name
   description = "RDS DB Name"

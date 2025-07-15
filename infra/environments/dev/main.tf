@@ -112,6 +112,16 @@ resource "aws_iam_policy" "nib_lambda_policy" {
         Action = "sns:Publish"
         Resource = "*"
         # This wildcard is required when publishing SMS messages directly to phone numbers
+      },
+      {
+        Sid = "LambdaFunctionCreationAccess"
+        Effect = "Allow",
+        Action = [
+          "lambda:CreateFunction",
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration"
+        ],
+        Resource = "*"
       }
     ]
   })
