@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    
+
 permissions:
   id-token: write
   contents: read
@@ -53,7 +53,7 @@ jobs:
         run: |
           for fn in src/functions/*; do
             name=$(basename "$fn")
-            zip -r "$name.zip" "$fn"
+            zip -r "$name.zip" "$fn" -x "*__pycache__/*" -x "*.pyc"
             aws s3 cp "$name.zip" "s3://$S3_BUCKET/functions/$name.zip"
           done
 
