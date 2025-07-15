@@ -33,7 +33,7 @@ jobs:
 
       - name: Package Layer
         run: |
-          cd src/layers
+          cd src/layer
           mkdir -p python
           pip install -r requirements.txt -t python/
           cp -r ../shared python/
