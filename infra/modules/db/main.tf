@@ -14,8 +14,8 @@ resource "aws_db_subnet_group" "nib_db_subnet_group" {
   })
 }
 
-resource "aws_security_group" "nib_rds_sg" {
-  name   = "nib-rds-sg"
+resource "aws_security_group" "nib_db_sg" {
+  name   = var.db_sg_name
   vpc_id = var.vpc_id
 
   ingress {
@@ -33,10 +33,9 @@ resource "aws_security_group" "nib_rds_sg" {
   }
 
   tags = merge(local.common_tags, {
-    Name = "nib-rds-sg"
+    Name = var.db_sg_name
   })
 }
-
 resource "random_password" "db_password" {
   length  = 16
   special = true
@@ -60,7 +59,7 @@ resource "aws_ssm_parameter" "db_password" {
  tags = local.common_tags
 }
 
-resource "aws_db_instance" "nib_rds" {
+resource "aws_db_instance" "nib_db" {
   identifier             = "nib-db"
   engine                 = "postgres"
   engine_version         = "15.5"
@@ -71,20 +70,20 @@ resource "aws_db_instance" "nib_rds" {
   username               = aws_ssm_parameter.db_username.value
   password               = aws_ssm_parameter.db_password.value
   db_subnet_group_name   = aws_db_subnet_group.nib_db_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.nib_rds_sg.id]
+  vpc_security_group_ids = [aws_security_group.nib_db_sg.id]
   multi_az               = false
   publicly_accessible    = false
   skip_final_snapshot    = true
 
   tags = merge(local.common_tags, {
-    Name = "nib-rds"
+    Name = "nib-db"
   })
 }
 
 resource "aws_ssm_parameter" "db_host" {
   name        = "nib/db/host"
   type        = "String"
-  value       = aws_db_instance.nib_rds.address
+  value       = aws_db_instance.nib_db.address
   description = "RDS DB Host"
   tags = local.common_tags
 }
@@ -92,7 +91,7 @@ resource "aws_ssm_parameter" "db_host" {
 resource "aws_ssm_parameter" "db_port" {
   name        = "nib/db/port"
   type        = "String"
-  value       = aws_db_instance.nib_rds.port
+  value       = aws_db_instance.nib_db.port
   description = "RDS DB Port"
   tags = local.common_tags
 }
@@ -100,7 +99,7 @@ resource "aws_ssm_parameter" "db_port" {
 resource "aws_ssm_parameter" "db_name" {
   name        = "nib/db/name"
   type        = "String"
-  value       = aws_db_instance.nib_rds.db_name
+  value       = aws_db_instance.nib_db.db_name
   description = "RDS DB Name"
   tags = local.common_tags
 }

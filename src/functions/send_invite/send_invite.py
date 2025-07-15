@@ -25,41 +25,47 @@ def send_invite(event: Dict[str, Any]):
         invite_request = parse(
             event=event, model=InviteRequest, envelope=ApiGatewayEnvelope
         )
+        activation_code = generate_activation_code()
+        logger.debug(
+            "Activation code generated", extra={"activation_code": activation_code}
+        )
+
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO users (first_name, last_name, mobile)
-                VALUES (%s, %s, %s)
-                RETURNING id
+                INSERT INTO invites (first_name, last_name, mobile, activation_code, invited_by, relationship, status)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     invite_request.first_name,
                     invite_request.last_name,
                     invite_request.mobile,
+                    activation_code,
+                    "54789478-d081-707a-8ff8-f18dc0258a3c",
+                    invite_request.relationship,
+                    "other",
                 ),
-            )
-            user_id = cur.fetchone()["id"]
-            logger.append_keys(user_id=user_id)
-
-            activation_code = generate_activation_code()
-            logger.debug(
-                "Activation code generated", extra={"activation_code": activation_code}
-            )
-
-            cur.execute(
-                """
-                INSERT INTO invites (user_id, activation_code)
-                VALUES (%s, %s)
-                """,
-                (user_id, activation_code),
             )
 
         # Send SMS via SNS
+
         sns = boto3.client("sns")
-        sns.publish(
+        response = sns.publish(
             PhoneNumber=invite_request.mobile,
             Message=f"Your activation code is: {activation_code}",
+            MessageAttributes={
+                "AWS.SNS.SMS.SMSType": {
+                    "DataType": "String",
+                    "StringValue": "Transactional",  # Or 'Promotional'
+                }
+            },
         )
+        status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        if status_code != 200:
+            logger.error(
+                "SMS may not have been sent successfully",
+                extra={"sns_response": response},
+            )
 
         conn.commit()
         return {"statusCode": 200, "body": json.dumps({"message": "Invite sent."})}
@@ -69,7 +75,8 @@ def send_invite(event: Dict[str, Any]):
         return {"statusCode": 400, "body": json.dumps({"error": str(ve)})}
 
     except Exception as e:
-        logger.exception("Unexpected error occurred", extra={"error": str(ve)})
+        conn.rollback()
+        logger.exception("Unexpected error occurred", extra={"error": str(e)})
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
 
     finally:
@@ -77,4 +84,4 @@ def send_invite(event: Dict[str, Any]):
 
 
 def generate_activation_code():
-    return str(uuid.uuid4())[:8]
+    return uuid.uuid4().hex[:8].upper()

@@ -23,6 +23,11 @@ variable "lambda_sg_id" {
   description = "Lambda security group ID"
 }
 
+variable "db_sg_name" {
+  type = string
+  description = "Database security group name"
+}
+
 variable "project" {
   type        = string
   description = "Project name"
@@ -35,6 +40,5 @@ variable "environment" {
 
 variable "db_subnet_group_name" {
   type        = string
-  default     = "nib-db-subnet-group"
   description = "Name of DB subnet group"
 }

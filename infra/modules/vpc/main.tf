@@ -3,12 +3,15 @@ locals {
     Project = var.project
     Environment = var.environment
   }
+  lambda_sg_name = "nib-lambda-sg"
+  db_subnet_group_name = "nib-db-subnet-group"
+  db_sg_name = "nib_db_sg"
 }
 
 resource "aws_vpc" "nib_vpc" {
   cidr_block = var.cidr_block
 
-tags = merge(local.common_tags, {
+  tags = merge(local.common_tags, {
     Name = var.name
   })
 }
@@ -22,11 +25,12 @@ resource "aws_subnet" "nib_subnets" {
 
   tags = merge(local.common_tags, {
     Name = each.key
+    Role = each.value.role
   })
 }
 
 resource "aws_security_group" "nib_lambda_sg" {
-  name        = "nib-lambda-sg"
+  name        = var.lambda_sg_name
   description = "Security group for NIB Lambda functions"
   vpc_id      = aws_vpc.nib_vpc.id
 
@@ -38,6 +42,6 @@ resource "aws_security_group" "nib_lambda_sg" {
   }
 
  tags = merge(local.common_tags, {
-    Name = "nib-lambda-sg"
+    Name = var.lambda_sg_name
   })
 }
