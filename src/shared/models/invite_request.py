@@ -6,8 +6,9 @@ class InviteRequest(BaseModel):
     first_name: str
     last_name: str
     mobile: str
+    relationship: str
 
-    @field_validator("first_name", "last_name")
+    @field_validator("first_name", "last_name", "mobile", "relationship")
     @classmethod
     def not_empty(cls, v, info: ValidationInfo):
         if not v.strip():

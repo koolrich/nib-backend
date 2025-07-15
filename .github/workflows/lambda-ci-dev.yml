@@ -1,0 +1,80 @@
+name: Dev Environment CI/CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ vars.DEV_AWS_REGION }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies with Poetry
+        run: poetry install
+
+      - name: Run Tests
+        run: poetry run pytest
+
+      - name: Package Layer
+        run: |
+          cd src/layers
+          mkdir -p python
+          pip install -r requirements.txt -t python/
+          cp -r ../shared python/
+          zip -r "$GITHUB_WORKSPACE/layer.zip" python/
+
+      - name: Package Lambda Functions
+        run: |
+          for fn in src/functions/*; do
+            name=$(basename "$fn")
+            zip -r "$name.zip" "$fn"
+            aws s3 cp "$name.zip" "s3://$S3_BUCKET/functions/$name.zip"
+          done
+
+      - name: Configure AWS Credentials (OIDC Assume Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::021891595998:role/TerraformUserRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload Layer Artifact to S3
+        run: |
+          aws s3 cp "$GITHUB_WORKSPACE/layer.zip" s3://$S3_BUCKET/layers/layer.zip
+
+      - name: Terraform Apply (Dev)
+        run: |
+          cd infra/environments/dev
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Run Flyway Migrations
+        run: |
+          DB_USER=$(aws ssm get-parameter --name "/nib/db/username" --with-decryption --query "Parameter.Value" --output text)
+          DB_PASSWORD=$(aws ssm get-parameter --name "/nib/db/password" --with-decryption --query "Parameter.Value" --output text)
+          DB_HOST=$(aws ssm get-parameter --name "/nib/db/host" --query "Parameter.Value" --output text)
+          DB_PORT=$(aws ssm get-parameter --name "/nib/db/port" --query "Parameter.Value" --output text)
+          DB_NAME=$(aws ssm get-parameter --name "/nib/db/name" --query "Parameter.Value" --output text)
+
+          docker run --rm \
+            -v $(pwd)/migrations:/flyway/sql \
+            flyway/flyway:10 \
+            -url=jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME \
+            -user=$DB_USER \
+            -password=$DB_PASSWORD \
+            migrate

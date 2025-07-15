@@ -1,3 +1,13 @@
+variable "project" {
+  type        = string
+  description = "Project name"
+}
+
+variable "environment" {
+  type        = string
+  description = "Environment"
+}
+
 variable "lambda_function_name" {
   description = "Lambda function name"
   type        = string
@@ -38,7 +48,13 @@ variable "vpc_subnet_ids" {
   type        = list(string)
 }
 
-variable "security_group_ids" {
-  description = "List of Security Group IDs for Lambda"
-  type        = list(string)
+variable "vpc_id" {
+  type = string
+  description = "The VPC ID"
+}
+
+variable "lambda_sg_id" {
+    type = string
+    description = "The security group ID for a Lambda function"
+  
 }

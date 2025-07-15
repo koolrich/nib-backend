@@ -17,19 +17,16 @@ variable "vpc_cidr" {
     default = "10.0.0.0/16"
 }
 variable "subnets" {
-  type = map(object({
-    cidr = string
-    az   = string
-  }))
-
   default = {
     "nib-subnet-1" = {
       cidr = "10.0.1.0/24"
       az   = "a"
+      role = "db"
     }
     "nib-subnet-2" = {
       cidr = "10.0.2.0/24"
       az   = "b"
+      role = "lambda"
     }
   }
 }
@@ -38,4 +35,10 @@ variable "db_user" {
 }
 variable "db_name" {
     default = "nibdb"
+}
+
+variable "lambda_artifact_bucket" {
+    type = string
+    default = "nib-lambda-artifacts"
+  
 }

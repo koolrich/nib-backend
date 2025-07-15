@@ -13,7 +13,12 @@ def test_handler_200_Ok(mock_get_connection, mock_boto_client, mock_db, mock_sns
 
     # ---- Run function ----
     event = generate_api_gw_event(
-        {"first_name": "Alice", "last_name": "Smith", "mobile": "+447123456789"}
+        {
+            "first_name": "Alice",
+            "last_name": "Smith",
+            "mobile": "+447123456789",
+            "relationship": "spouse",
+        }
     )
 
     result = send_invite.handler(event, generate_context())
