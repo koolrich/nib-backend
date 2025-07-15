@@ -26,6 +26,11 @@ variable "subnets" {
     "nib-subnet-2" = {
       cidr = "10.0.2.0/24"
       az   = "b"
+      role = "db"
+    }
+    "nib-subnet-3" = {
+      cidr = "10.0.3.0/24"
+      az   = "c"
       role = "lambda"
     }
   }

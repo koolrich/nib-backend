@@ -2,6 +2,13 @@ provider "aws" {
   region = var.aws_region
 }
 
+locals {
+  common_tags = {
+    Project = var.project
+    
+  }
+}
+
 terraform {
   backend "s3" {
     bucket         = "nib-terraform-state-1"
@@ -68,9 +75,8 @@ resource "aws_iam_role" "nib_lambda_execution_role" {
       }
     ]
   })
-  tags = {
-    Project: "nib"
-  }
+
+ tags = local.common_tags
 }
 
 data "aws_caller_identity" "current" {}
@@ -109,6 +115,8 @@ resource "aws_iam_policy" "nib_lambda_policy" {
       }
     ]
   })
+  
+  tags = local.common_tags
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_attach" {
