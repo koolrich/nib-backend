@@ -1,0 +1,36 @@
+name: Destroy Development Environment
+
+on:
+   workflow_dispatch:
+
+permissions:
+        id-token: write
+        contents: read
+
+jobs:
+    destroy-dev:
+      runs-on: ubuntu-latest
+
+      env:
+         AWS_REGION: ${{ vars.DEV_AWS_REGION }}
+      
+      steps:
+        - name: Configure AWS Credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            role-to-assume: arn:aws:iam::021891595998:role/TerraformUserRole
+            aws-region: ${{ env.AWS_REGION }}
+  
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Set up Terraform CLI
+          uses: hashicorp/setup-terraform@v2
+          with:
+              terraform_version: "1.12.2"
+  
+        - name: Destroy Terraform Resources
+          run: |
+            cd infra/environments/dev
+            terraform init
+            terraform destroy -auto-approve

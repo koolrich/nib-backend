@@ -1,10 +1,5 @@
 provider "aws" {
   region = var.aws_region
-
-  assume_role {
-    role_arn     = "arn:aws:iam::021891595998:role/TerraformUserRole"
-    session_name = "terraform-session"
-  }
 }
 
 terraform {
@@ -14,11 +9,6 @@ terraform {
     region         = "eu-west-2"
     use_lockfile   = true
     encrypt        = true
-    assume_role = {
-        role_arn = "arn:aws:iam::021891595998:role/TerraformUserRole"
-        role_session_name = "terraform-state-access"
-       
-    }
   }
 }
 
