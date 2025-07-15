@@ -61,6 +61,11 @@ jobs:
         run: |
           aws s3 cp "$GITHUB_WORKSPACE/layer.zip" s3://$S3_BUCKET/layers/layer.zip
 
+      - name: Set up Terraform CLI
+        uses: hashicorp/setup-terraform@v2
+        with:
+            terraform_version: "1.12.2"
+
       - name: Terraform Apply (Dev)
         run: |
           cd infra/environments/dev
