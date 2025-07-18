@@ -60,6 +60,11 @@ jobs:
       - name: Upload Layer Artifact to S3
         run: |
           aws s3 cp "$GITHUB_WORKSPACE/layer.zip" s3://$S3_BUCKET/layers/layer.zip
+      
+      - name: Package and Upload Migrations Folder
+        run: |
+            zip -r migrations.zip migrations/
+            aws s3 cp migrations.zip s3://$S3_BUCKET/migrations/migrations.zip
 
       - name: Set up Terraform CLI
         uses: hashicorp/setup-terraform@v2
@@ -71,19 +76,3 @@ jobs:
           cd infra/environments/dev
           terraform init
           terraform apply -auto-approve
-
-      - name: Run Flyway Migrations
-        run: |
-          DB_USER=$(aws ssm get-parameter --name "/nib/db/username" --with-decryption --query "Parameter.Value" --output text)
-          DB_PASSWORD=$(aws ssm get-parameter --name "/nib/db/password" --with-decryption --query "Parameter.Value" --output text)
-          DB_HOST=$(aws ssm get-parameter --name "/nib/db/host" --query "Parameter.Value" --output text)
-          DB_PORT=$(aws ssm get-parameter --name "/nib/db/port" --query "Parameter.Value" --output text)
-          DB_NAME=$(aws ssm get-parameter --name "/nib/db/name" --query "Parameter.Value" --output text)
-
-          docker run --rm \
-            -v $(pwd)/migrations:/flyway/sql \
-            flyway/flyway:10 \
-            -url=jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME \
-            -user=$DB_USER \
-            -password=$DB_PASSWORD \
-            migrate

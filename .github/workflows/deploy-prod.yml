@@ -10,8 +10,6 @@ permissions:
 jobs:
   deploy-prod:
     runs-on: ubuntu-latest
-    environment:
-      name: production
 
     env:
       AWS_REGION: ${{ vars.PROD_AWS_REGION }}
@@ -37,19 +35,3 @@ jobs:
           cd infra/environments/prod
           terraform init
           terraform apply -auto-approve
-
-      - name: Run Flyway Migrations
-        run: |
-          DB_USER=$(aws ssm get-parameter --name "/nib/db/username" --region "$AWS_REGION" --query "Parameter.Value" --output text)
-          DB_PASSWORD=$(aws ssm get-parameter --name "/nib/db/password" --with-decryption --region "$AWS_REGION" --query "Parameter.Value" --output text)
-          DB_HOST=$(aws ssm get-parameter --name "/nib/db/host" --region "$AWS_REGION" --query "Parameter.Value" --output text)
-          DB_PORT=$(aws ssm get-parameter --name "/nib/db/port" --region "$AWS_REGION" --query "Parameter.Value" --output text)
-          DB_NAME=$(aws ssm get-parameter --name "/nib/db/name" --region "$AWS_REGION" --query "Parameter.Value" --output text)
-
-          docker run --rm \
-            -v $(pwd)/migrations:/flyway/sql \
-            flyway/flyway:10 \
-            -url=jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME \
-            -user=$DB_USER \
-            -password=$DB_PASSWORD \
-            migrate
