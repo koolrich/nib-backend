@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS invites (
 
 CREATE TABLE IF NOT EXISTS membership_periods (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  membership_id REFERENCES memberships(id),
+  membership_id UUID REFERENCES memberships(id),
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   status TEXT NOT NULL
