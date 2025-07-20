@@ -64,7 +64,7 @@ jobs:
       - name: Package and Upload Migrations Folder
         run: |
             zip -r migrations.zip migrations/
-            aws s3 cp migrations.zip s3://$S3_BUCKET/migrations/migrations.zip
+            aws s3 cp migrations.zip s3://$S3_BUCKET/db-migrations/migrations.zip
 
       - name: Set up Terraform CLI
         uses: hashicorp/setup-terraform@v2
