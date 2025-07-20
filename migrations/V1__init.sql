@@ -1,19 +1,24 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+CREATE TABLE IF NOT EXISTS memberships (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  membership_type TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS members (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   cognito_user_id TEXT UNIQUE NOT NULL,
-  mobile TEXT NOT NULL UNIQUE,
-  email TEXT,
-  first_name NOT NULL TEXT,
-  last_name NOT NULL TEXT,
+  mobile TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
   address_line1 TEXT,
   address_line2 TEXT,
   town TEXT,
   post_code TEXT,
-  role NOT NULL TEXT CHECK (role IN ('admin', 'member')),
+  member_role TEXT NOT NULL,
   membership_id UUID REFERENCES memberships(id),
-  date_joined DATE,
+  date_joined DATE NOT NULL,
   is_legacy BOOLEAN,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
@@ -21,33 +26,28 @@ CREATE TABLE IF NOT EXISTS members (
 
 CREATE TABLE IF NOT EXISTS invites (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  first_name NOT NULL TEXT,
-  last_name NOT NULL TEXT,
-  mobile TEXT NOT NULL
-  activation_code TEXT NOT NULL UNIQUE,
-  invited_by UUID NOT NULL REFERENCES members(id),
-  relationship TEXT,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  mobile TEXT NOT NULL,
+  activation_code TEXT UNIQUE NOT NULL,
+  invited_by UUID REFERENCES members(id),
+  relationship TEXT NOT NULL,
   status TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS memberships (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  membership_type NOT NULL TEXT
 );
 
 CREATE TABLE IF NOT EXISTS membership_periods (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  membership_id NOT NULL REFERENCES memberships(id),
-  start_date NOT NULL DATE,
-  end_date NOT NULL DATE,
-  status NOT NULL TEXT
+  membership_id REFERENCES memberships(id),
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  status TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS reference_data (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  category NOT NULL TEXT,
-  code NOT NULL TEXT,
-  label NOT NULL TEXT,
+  category TEXT NOT NULL,
+  code TEXT NOT NULL,
+  label TEXT NOT NULL,
   sort_order INTEGER,
   is_active BOOLEAN
 );
