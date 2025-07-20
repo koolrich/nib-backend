@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS reference_data (
   code TEXT NOT NULL,
   label TEXT NOT NULL,
   sort_order INTEGER,
-  is_active BOOLEAN
+  is_active BOOLEAN,
+  CONSTRAINT reference_data_category_code_uniq UNIQUE (category, code)
 );
 
 INSERT INTO reference_data (category, code, label, sort_order, is_active)
