@@ -10,6 +10,7 @@ resource "aws_lambda_function" "this" {
   role          = var.lambda_role_arn
   handler       = var.lambda_handler
   runtime       = "python3.13"
+  source_code_hash = var.source_code_hash
 
   s3_bucket = var.lambda_artifact_bucket
   s3_key    = var.lambda_s3_key

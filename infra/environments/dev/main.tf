@@ -152,6 +152,7 @@ module "lambda_function_send_invite" {
   lambda_artifact_bucket      = var.lambda_artifact_bucket
   lambda_s3_key               = "functions/send_invite.zip"
   lambda_function_name        = "send_invite"
+  source_code_hash = filebase64sha256("send_invite.zip")
   lambda_role_arn             = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler              = "src.functions.send_invite.send_invite.handler"
   lambda_layer_arn            = aws_lambda_layer_version.shared_layer.arn

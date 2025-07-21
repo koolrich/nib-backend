@@ -55,6 +55,10 @@ variable "vpc_id" {
 
 variable "lambda_sg_id" {
     type = string
-    description = "The security group ID for a Lambda function"
-  
+    description = "The security group ID for a Lambda function"  
+}
+
+variable "source_code_hash" {
+  type = string
+  description = "Holds base64-encoded SHA256 hash of lambda deployment package"
 }
