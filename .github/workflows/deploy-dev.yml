@@ -55,6 +55,7 @@ jobs:
             name=$(basename "$fn")
             zip -r "$name.zip" "$fn" -x "*__pycache__/*" -x "*.pyc"
             aws s3 cp "$name.zip" "s3://$S3_BUCKET/functions/$name.zip"
+            cp "$name.zip" infra/environments/dev/
           done
 
       - name: Upload Layer Artifact to S3
