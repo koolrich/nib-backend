@@ -34,7 +34,7 @@ def send_invite(event: Dict[str, Any]):
             cur.execute(
                 """
                 INSERT INTO invites (first_name, last_name, mobile, activation_code, invited_by, relationship, status)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     invite_request.first_name,
