@@ -41,7 +41,7 @@ def send_invite(event: Dict[str, Any]):
                     invite_request.last_name,
                     invite_request.mobile,
                     activation_code,
-                    "54789478-d081-707a-8ff8-f18dc0258a3c",
+                    "093c5291-5f10-4dff-8424-affdfbe7776a",
                     invite_request.relationship,
                     "other",
                 ),
