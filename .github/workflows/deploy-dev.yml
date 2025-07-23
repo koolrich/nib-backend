@@ -48,7 +48,7 @@ jobs:
           pip install -r requirements.txt -t python/
           cp -r ../shared python/
           zip -r "$GITHUB_WORKSPACE/layer.zip" python/
-          cp "$GITHUB_WORKSPACE/layer.zip" infra/environments/dev/
+          cp "$GITHUB_WORKSPACE/layer.zip" "$GITHUB_WORKSPACE/infra/environments/dev/"
 
       - name: Package Lambda Functions
         run: |
