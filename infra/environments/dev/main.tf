@@ -145,6 +145,7 @@ resource "aws_lambda_layer_version" "shared_layer" {
   s3_key              = "layers/layer.zip"
   layer_name          = "shared_layer"
   compatible_runtimes = ["python3.13"]
+  source_code_hash = filebase64sha256("layer.zip")
 }
 
 module "lambda_function_send_invite" {
