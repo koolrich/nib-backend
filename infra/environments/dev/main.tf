@@ -122,6 +122,15 @@ resource "aws_iam_policy" "nib_lambda_policy" {
           "lambda:UpdateFunctionConfiguration"
         ],
         Resource = "*"
+      },
+      {
+        Sid = "LambdaXrayAccess"
+        Effect = "Allow",
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords"
+        ],
+        Resource = "*"
       }
     ]
   })

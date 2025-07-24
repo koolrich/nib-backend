@@ -25,4 +25,8 @@ resource "aws_lambda_function" "this" {
     subnet_ids         = var.vpc_subnet_ids
     security_group_ids = [var.lambda_sg_id]
   }
+
+  tracing_config {
+    mode = "Active"
+  }
 }
