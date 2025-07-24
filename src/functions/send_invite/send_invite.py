@@ -59,6 +59,8 @@ def send_invite(event: Dict[str, Any]):
 
 @tracer.capture_method(name="InsertInvite")
 def insert_invite(conn, invite_request: InviteRequest, activation_code: str):
+    print("InsertInvite called")
+    tracer.put_annotation("Debug", "InsertInvite reached")
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -79,6 +81,9 @@ def insert_invite(conn, invite_request: InviteRequest, activation_code: str):
 
 @tracer.capture_method(name="SendInviteSMS")
 def publish_invite_sms(mobile: str, activation_code: str):
+    print("SendInviteSMS called")
+    tracer.put_annotation("Debug", "SendInviteSMS reached")
+
     sns = boto3.client("sns")
     response = sns.publish(
         PhoneNumber=mobile,
