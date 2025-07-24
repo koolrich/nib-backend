@@ -77,6 +77,7 @@ def insert_invite(conn, invite_request: InviteRequest, activation_code: str):
                 "other",
             ),
         )
+    print("InsertInvite finished")
 
 
 @tracer.capture_method(name="SendInviteSMS")
@@ -97,6 +98,7 @@ def publish_invite_sms(mobile: str, activation_code: str):
     )
 
     status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    print("Status code sns: ", status_code)
     if status_code != 200:
         logger.error(
             "SMS may not have been sent successfully",
