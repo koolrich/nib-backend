@@ -10,7 +10,7 @@ resource "aws_vpc_endpoint" "this" {
   service_name      = "com.amazonaws.${var.aws_region}.${var.service_name}"
   vpc_endpoint_type = "Interface"
   subnet_ids        = var.subnet_ids
-  security_group_ids = aws_security_group.vpc_interface_endpoints_sg.id
+  security_group_ids = [aws_security_group.vpc_interface_endpoints_sg.id]
   private_dns_enabled = var.enable_private_dns
 
   tags = merge(local.common_tags, {
