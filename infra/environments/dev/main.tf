@@ -4,8 +4,7 @@ provider "aws" {
 
 locals {
   common_tags = {
-    Project = var.project
-    
+    Project = var.project 
   }
 }
 
@@ -146,6 +145,18 @@ resource "aws_iam_role_policy_attachment" "lambda_attach" {
 resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
   role       = aws_iam_role.nib_lambda_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+module "sns_endpoint" {
+  source             = "../../modules/vpc_interface_endpoint"
+  service_name       = "sns"
+  vpc_id             = module.vpc.vpc_id
+  subnet_ids         = module.vpc.lambda_subnet_ids
+  source_security_group_ids = [module.vpc.lambda_sg_id]
+  aws_region = var.aws_region
+  enable_private_dns = true
+  project               = var.project
+  environment = var.environment
 }
 
 

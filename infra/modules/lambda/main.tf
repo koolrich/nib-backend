@@ -29,4 +29,6 @@ resource "aws_lambda_function" "this" {
   tracing_config {
     mode = "Active"
   }
+
+  tags = local.common_tags
 }
