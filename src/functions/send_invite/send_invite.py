@@ -16,6 +16,7 @@ from shared.services.invite_service import (
     publish_invite_sms,
     generate_activation_code,
 )
+from shared.services.member_service import get_member_by_cognito_sub
 
 
 logger = Logger()
@@ -36,12 +37,17 @@ def send_invite(event: Dict[str, Any]):
             event=event, model=InviteRequest, envelope=ApiGatewayEnvelope
         )
 
+        cognito_sub = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]
+        member = get_member_by_cognito_sub(conn, cognito_sub)
+        if not member:
+            return {"statusCode": 403, "body": json.dumps({"error": "Member not found"})}
+
         activation_code = generate_activation_code()
         logger.debug(
             "Activation code generated", extra={"activation_code": activation_code}
         )
 
-        insert_invite(conn, invite_request, activation_code)
+        insert_invite(conn, invite_request, activation_code, str(member["id"]))
         publish_invite_sms(invite_request.mobile, activation_code)
 
         conn.commit()

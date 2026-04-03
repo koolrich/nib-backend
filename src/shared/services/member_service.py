@@ -7,6 +7,16 @@ from aws_lambda_powertools import Logger
 logger = Logger()
 
 
+@tracer.capture_method(name="GetMemberByCognitoSub")
+def get_member_by_cognito_sub(conn, cognito_sub: str):
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM members WHERE cognito_user_id = %s",
+            (cognito_sub,),
+        )
+        return cur.fetchone()
+
+
 @tracer.capture_method(name="InsertMember")
 def insert_member(conn, request: RegisterRequest, cognito_sub: str, invited_by: str, is_legacy: bool) -> str:
     with conn.cursor() as cur:

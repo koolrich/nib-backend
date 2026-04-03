@@ -14,7 +14,7 @@ INVITE_EXPIRY_DAYS = 30
 
 
 @tracer.capture_method(name="InsertInvite")
-def insert_invite(conn, invite_request: InviteRequest, activation_code: str):
+def insert_invite(conn, invite_request: InviteRequest, activation_code: str, invited_by: str):
     expires_at = datetime.now(timezone.utc) + timedelta(days=INVITE_EXPIRY_DAYS)
     with conn.cursor() as cur:
         cur.execute(
@@ -29,7 +29,7 @@ def insert_invite(conn, invite_request: InviteRequest, activation_code: str):
                 invite_request.last_name,
                 invite_request.mobile,
                 activation_code,
-                "093c5291-5f10-4dff-8424-affdfbe7776a",
+                invited_by,
                 invite_request.relationship,
                 InviteStatus.PENDING.value,
                 expires_at,

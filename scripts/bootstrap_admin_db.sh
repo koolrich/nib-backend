@@ -1,35 +1,48 @@
 #!/usr/bin/env bash
 # bootstrap_admin_db.sh
-# Links the admin Cognito sub to the existing admin member record in the DB.
-# Run this ON THE EC2 INSTANCE after running bootstrap_admin_cognito.sh locally.
+# Inserts the admin member record into the DB.
+# Run this ON THE EC2 INSTANCE after bootstrap_admin_cognito.sh.
 #
-# Usage: ./scripts/bootstrap_admin_db.sh <cognito_sub>
-#
-# Prerequisites:
-#   - psql available on the EC2 instance
-#   - connect-db script available at /usr/local/bin/connect-db
+# Usage: bash bootstrap_admin_db.sh <cognito_sub> <phone>
 
 set -euo pipefail
 
 COGNITO_SUB="${1:-}"
+PHONE="${2:-}"
 
-if [[ -z "$COGNITO_SUB" ]]; then
-  echo "Usage: $0 <cognito_sub>"
+if [[ -z "$COGNITO_SUB" || -z "$PHONE" ]]; then
+  echo "Usage: $0 <cognito_sub> <phone>"
   exit 1
 fi
 
-ADMIN_MEMBER_ID="093c5291-5f10-4dff-8424-affdfbe7776a"
-
-echo "Run the following SQL in your psql session:"
+echo "Run the following SQL in your psql session to create the admin member:"
 echo ""
 echo "------------------------------------------------------------"
-echo "UPDATE members"
-echo "SET cognito_user_id = '${COGNITO_SUB}'"
-echo "WHERE id = '${ADMIN_MEMBER_ID}';"
+cat <<SQL
+INSERT INTO memberships (membership_type)
+VALUES ('individual')
+RETURNING id;
+SQL
 echo ""
-echo "SELECT id, cognito_user_id, member_role, status"
-echo "FROM members"
-echo "WHERE id = '${ADMIN_MEMBER_ID}';"
+echo "-- Use the membership id returned above in place of <membership_id> below:"
+echo ""
+cat <<SQL
+INSERT INTO members (
+    cognito_user_id, mobile, email, first_name, last_name,
+    member_role, membership_id, status, is_legacy, date_joined
+) VALUES (
+    '${COGNITO_SUB}',
+    '${PHONE}',
+    'admin@nib.org',
+    'Admin',
+    'User',
+    'admin',
+    '<membership_id>',
+    'active',
+    false,
+    CURRENT_DATE
+);
+SQL
 echo "------------------------------------------------------------"
 echo ""
 echo "Then run: /usr/local/bin/connect-db"

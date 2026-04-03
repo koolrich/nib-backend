@@ -12,26 +12,35 @@ def generate_context():
     return context
 
 
-def generate_api_gw_event(body: Optional[dict[str, Any]]) -> dict[str, Any]:
+def generate_api_gw_event(body: Optional[dict[str, Any]], cognito_sub: Optional[str] = None) -> dict[str, Any]:
+    request_context: dict[str, Any] = {
+        "accountId": "123456789012",
+        "apiId": "api-id",
+        "stage": "dev",
+        "protocol": "HTTP/1.1",
+        "identity": {"sourceIp": "127.0.0.1"},
+        "requestId": "test-request-id",
+        "requestTime": "01/Jan/2021:12:00:00 +0000",
+        "requestTimeEpoch": 1609502400000,
+        "resourcePath": "/send-invite",
+        "httpMethod": "POST",
+        "path": "/dev/send-invite",
+    }
+
+    if cognito_sub:
+        request_context["authorizer"] = {
+            "jwt": {
+                "claims": {"sub": cognito_sub}
+            }
+        }
+
     return {
         "resource": "/send-invite",
         "path": "/send-invite",
         "httpMethod": "POST",
         "headers": {},
         "multiValueHeaders": {},
-        "requestContext": {
-            "accountId": "123456789012",
-            "apiId": "api-id",
-            "stage": "dev",
-            "protocol": "HTTP/1.1",
-            "identity": {"sourceIp": "127.0.0.1"},
-            "requestId": "test-request-id",
-            "requestTime": "01/Jan/2021:12:00:00 +0000",
-            "requestTimeEpoch": 1609502400000,
-            "resourcePath": "/send-invite",
-            "httpMethod": "POST",
-            "path": "/dev/send-invite",
-        },
+        "requestContext": request_context,
         "body": "" if body is None else json.dumps(body),
         "isBase64Encoded": False,
     }
