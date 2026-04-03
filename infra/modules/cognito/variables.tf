@@ -46,3 +46,9 @@ variable "password_require_lowercase" {
   default     = true
   description = "Require lowercase letters in password"
 }
+
+variable "alias_attributes" {
+  type        = list(string)
+  description = "Attributes that can be used as an alias for login (e.g. phone_number, email)"
+  default     = []
+}

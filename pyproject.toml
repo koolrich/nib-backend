@@ -20,10 +20,12 @@ packages = [
   { include = "shared", from = "src" }
 ]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.4.1"
-pytest-mock = "^3.14.1"
-moto = { extras = ["sns"], version = "^5.1.6"}
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-mock>=3.14.1",
+    "moto[sns]>=5.1.6",
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

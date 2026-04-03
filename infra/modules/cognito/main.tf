@@ -6,7 +6,8 @@ locals {
 }
 
 resource "aws_cognito_user_pool" "nib_user_pool" {
-  name = var.user_pool_name
+  name             = var.user_pool_name
+  alias_attributes = var.alias_attributes
 
   password_policy {
     minimum_length    = var.password_min_length

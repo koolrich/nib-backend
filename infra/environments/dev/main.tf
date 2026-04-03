@@ -52,6 +52,7 @@ module "cognito" {
     "ALLOW_REFRESH_TOKEN_AUTH",
     "ALLOW_USER_SRP_AUTH"
   ]
+  alias_attributes          = ["phone_number"]
   generate_secret           = false
   password_min_length       = 8
   password_require_numbers  = true
@@ -130,6 +131,17 @@ resource "aws_iam_policy" "nib_lambda_policy" {
           "xray:PutTelemetryRecords"
         ],
         Resource = "*"
+      },
+      {
+        Sid    = "CognitoAdminAccess"
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:AdminConfirmSignUp",
+          "cognito-idp:AdminDeleteUser",
+          "cognito-idp:AdminInitiateAuth",
+          "cognito-idp:AdminGetUser"
+        ]
+        Resource = "arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/${module.cognito.user_pool_id}"
       }
     ]
   })
@@ -159,6 +171,35 @@ module "sns_endpoint" {
   environment = var.environment
 }
 
+resource "aws_vpc_endpoint" "cognito_idp" {
+  vpc_id              = module.vpc.vpc_id
+  service_name        = "com.amazonaws.${var.aws_region}.cognito-idp"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = module.vpc.lambda_subnet_ids
+  security_group_ids  = [module.sns_endpoint.security_group_id]
+  private_dns_enabled = true
+
+  tags = merge(local.common_tags, {
+    Name = "cognito-idp-endpoint"
+  })
+}
+
+
+resource "aws_ssm_parameter" "cognito_user_pool_id" {
+  name  = "/nib/cognito/user_pool_id"
+  type  = "String"
+  value = module.cognito.user_pool_id
+
+  tags = local.common_tags
+}
+
+resource "aws_ssm_parameter" "cognito_app_client_id" {
+  name  = "/nib/cognito/app_client_id"
+  type  = "String"
+  value = module.cognito.app_client_id
+
+  tags = local.common_tags
+}
 
 resource "aws_lambda_layer_version" "shared_layer" {
   s3_bucket           = var.lambda_artifact_bucket
@@ -169,21 +210,103 @@ resource "aws_lambda_layer_version" "shared_layer" {
 }
 
 module "lambda_function_send_invite" {
-  source = "../../modules/lambda"
-  lambda_artifact_bucket      = var.lambda_artifact_bucket
-  lambda_s3_key               = "functions/send_invite.zip"
-  lambda_function_name        = "send_invite"
-  source_code_hash = filebase64sha256("send_invite.zip")
-  lambda_role_arn             = aws_iam_role.nib_lambda_execution_role.arn
-  lambda_handler              = "src.functions.send_invite.send_invite.handler"
-  lambda_layer_arn            = aws_lambda_layer_version.shared_layer.arn
-  lambda_environment_variables = {
-    ENV = "dev"
+  source                       = "../../modules/lambda"
+  lambda_artifact_bucket       = var.lambda_artifact_bucket
+  lambda_s3_key                = "functions/send_invite.zip"
+  lambda_function_name         = "send_invite"
+  source_code_hash             = filebase64sha256("send_invite.zip")
+  lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
+  lambda_handler               = "src.functions.send_invite.send_invite.handler"
+  lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
+  lambda_environment_variables = { ENV = "dev" }
+  vpc_subnet_ids               = module.vpc.lambda_subnet_ids
+  vpc_id                       = module.vpc.vpc_id
+  lambda_sg_id                 = module.vpc.lambda_sg_id
+  project                      = var.project
+  environment                  = var.environment
+}
+
+module "lambda_function_validate_invite" {
+  source                       = "../../modules/lambda"
+  lambda_artifact_bucket       = var.lambda_artifact_bucket
+  lambda_s3_key                = "functions/validate_invite.zip"
+  lambda_function_name         = "validate_invite"
+  source_code_hash             = filebase64sha256("validate_invite.zip")
+  lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
+  lambda_handler               = "src.functions.validate_invite.validate_invite.handler"
+  lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
+  lambda_environment_variables = { ENV = "dev" }
+  vpc_subnet_ids               = module.vpc.lambda_subnet_ids
+  vpc_id                       = module.vpc.vpc_id
+  lambda_sg_id                 = module.vpc.lambda_sg_id
+  project                      = var.project
+  environment                  = var.environment
+}
+
+module "lambda_function_register" {
+  source                       = "../../modules/lambda"
+  lambda_artifact_bucket       = var.lambda_artifact_bucket
+  lambda_s3_key                = "functions/register.zip"
+  lambda_function_name         = "register"
+  source_code_hash             = filebase64sha256("register.zip")
+  lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
+  lambda_handler               = "src.functions.register.register.handler"
+  lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
+  lambda_environment_variables = { ENV = "dev" }
+  vpc_subnet_ids               = module.vpc.lambda_subnet_ids
+  vpc_id                       = module.vpc.vpc_id
+  lambda_sg_id                 = module.vpc.lambda_sg_id
+  project                      = var.project
+  environment                  = var.environment
+}
+
+module "lambda_function_login" {
+  source                       = "../../modules/lambda"
+  lambda_artifact_bucket       = var.lambda_artifact_bucket
+  lambda_s3_key                = "functions/login.zip"
+  lambda_function_name         = "login"
+  source_code_hash             = filebase64sha256("login.zip")
+  lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
+  lambda_handler               = "src.functions.login.login.handler"
+  lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
+  lambda_environment_variables = { ENV = "dev" }
+  vpc_subnet_ids               = module.vpc.lambda_subnet_ids
+  vpc_id                       = module.vpc.vpc_id
+  lambda_sg_id                 = module.vpc.lambda_sg_id
+  project                      = var.project
+  environment                  = var.environment
+}
+
+module "api_gateway" {
+  source                = "../../modules/api_gateway"
+  project               = var.project
+  environment           = var.environment
+  aws_region            = var.aws_region
+  api_name              = "nib-api"
+  cognito_user_pool_id  = module.cognito.user_pool_id
+  cognito_app_client_id = module.cognito.app_client_id
+
+  routes = {
+    "POST /invites" = {
+      lambda_invoke_arn = module.lambda_function_send_invite.invoke_arn
+      lambda_arn        = module.lambda_function_send_invite.function_arn
+      requires_auth     = true
+    }
+    "POST /invites/validate" = {
+      lambda_invoke_arn = module.lambda_function_validate_invite.invoke_arn
+      lambda_arn        = module.lambda_function_validate_invite.function_arn
+      requires_auth     = false
+    }
+    "POST /auth/register" = {
+      lambda_invoke_arn = module.lambda_function_register.invoke_arn
+      lambda_arn        = module.lambda_function_register.function_arn
+      requires_auth     = false
+    }
+    "POST /auth/login" = {
+      lambda_invoke_arn = module.lambda_function_login.invoke_arn
+      lambda_arn        = module.lambda_function_login.function_arn
+      requires_auth     = false
+    }
   }
-  vpc_subnet_ids              = module.vpc.lambda_subnet_ids
-  vpc_id = module.vpc.vpc_id
-  lambda_sg_id = module.vpc.lambda_sg_id
-  project = var.project
-  environment = var.environment
 }
 

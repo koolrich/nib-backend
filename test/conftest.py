@@ -20,5 +20,8 @@ def mock_db():
 @pytest.fixture
 def mock_sns():
     mock_sns_client = MagicMock()
-    mock_sns_client.publish.return_value = {}
+    mock_sns_client.publish.return_value = {
+        "ResponseMetadata": {"HTTPStatusCode": 200},
+        "MessageId": "test-message-id",
+    }
     return mock_sns_client
