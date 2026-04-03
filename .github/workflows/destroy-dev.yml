@@ -29,6 +29,13 @@ jobs:
           with:
               terraform_version: "1.12.2"
   
+        - name: Create placeholder zips for Terraform hash functions
+          run: |
+            cd infra/environments/dev
+            for name in layer send_invite validate_invite register login; do
+              touch dummy && zip "${name}.zip" dummy && rm dummy
+            done
+
         - name: Destroy Terraform Resources
           run: |
             cd infra/environments/dev
