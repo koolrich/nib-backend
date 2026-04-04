@@ -172,6 +172,19 @@ module "sns_endpoint" {
   environment = var.environment
 }
 
+resource "aws_vpc_endpoint" "ssm" {
+  vpc_id              = module.vpc.vpc_id
+  service_name        = "com.amazonaws.${var.aws_region}.ssm"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = module.vpc.lambda_subnet_ids
+  security_group_ids  = [module.sns_endpoint.security_group_id]
+  private_dns_enabled = true
+
+  tags = merge(local.common_tags, {
+    Name = "ssm-endpoint"
+  })
+}
+
 resource "aws_vpc_endpoint" "cognito_idp" {
   vpc_id              = module.vpc.vpc_id
   service_name        = "com.amazonaws.${var.aws_region}.cognito-idp"
