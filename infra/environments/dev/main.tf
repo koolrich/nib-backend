@@ -159,6 +159,30 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
+resource "aws_iam_role_policy" "terraform_role_apigateway" {
+  name = "TerraformRoleAPIGatewayAccess"
+  role = "TerraformUserRole"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "APIGatewayAccess"
+        Effect = "Allow"
+        Action = [
+          "apigateway:POST",
+          "apigateway:GET",
+          "apigateway:PUT",
+          "apigateway:PATCH",
+          "apigateway:DELETE",
+          "apigateway:TagResource"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 module "sns_endpoint" {
   source             = "../../modules/vpc_interface_endpoint"
   service_name       = "sns"
@@ -224,6 +248,7 @@ module "lambda_function_send_invite" {
   lambda_sg_id                 = module.vpc.lambda_sg_id
   project                      = var.project
   environment                  = var.environment
+  depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
 }
 
 module "lambda_function_validate_invite" {
@@ -241,6 +266,7 @@ module "lambda_function_validate_invite" {
   lambda_sg_id                 = module.vpc.lambda_sg_id
   project                      = var.project
   environment                  = var.environment
+  depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
 }
 
 module "lambda_function_register" {
@@ -258,6 +284,7 @@ module "lambda_function_register" {
   lambda_sg_id                 = module.vpc.lambda_sg_id
   project                      = var.project
   environment                  = var.environment
+  depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
 }
 
 module "lambda_function_login" {
@@ -275,6 +302,7 @@ module "lambda_function_login" {
   lambda_sg_id                 = module.vpc.lambda_sg_id
   project                      = var.project
   environment                  = var.environment
+  depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
 }
 
 module "api_gateway" {
