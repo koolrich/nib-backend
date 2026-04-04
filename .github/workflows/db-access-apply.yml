@@ -1,0 +1,45 @@
+name: DB Access - Terraform Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Environment
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  db-access-apply:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ vars.DEV_AWS_REGION }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC Assume Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::021891595998:role/TerraformUserRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Terraform CLI
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: "1.12.2"
+
+      - name: Terraform Apply (DB Access)
+        run: |
+          cd infra/db_access
+          terraform init
+          terraform apply -var-file=${{ github.event.inputs.env }}.tfvars -auto-approve
