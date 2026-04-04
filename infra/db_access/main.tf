@@ -39,5 +39,9 @@ data "aws_subnet" "private" {
 }
 
 data "aws_route_table" "private" {
-  subnet_id = data.aws_subnet.private.id
+  vpc_id = data.aws_vpc.nib.id
+  filter {
+    name   = "association.main"
+    values = ["true"]
+  }
 }
