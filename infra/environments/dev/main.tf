@@ -137,6 +137,7 @@ resource "aws_iam_policy" "nib_lambda_policy" {
         Sid    = "CognitoAdminAccess"
         Effect = "Allow"
         Action = [
+          "cognito-idp:SignUp",
           "cognito-idp:AdminConfirmSignUp",
           "cognito-idp:AdminDeleteUser",
           "cognito-idp:AdminInitiateAuth",
