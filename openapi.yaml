@@ -1,0 +1,326 @@
+openapi: 3.0.3
+info:
+  title: NIB API
+  description: |
+    Backend API for NIB (Ndi Igbo Basingstoke) — a members-only community association app.
+    Invite-only registration. All protected endpoints require a Bearer JWT token obtained from POST /auth/login.
+  version: 1.0.0
+
+servers:
+  - url: https://{apiId}.execute-api.eu-west-2.amazonaws.com
+    description: AWS API Gateway (dev)
+
+security: []
+
+components:
+  securitySchemes:
+    CognitoJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from POST /auth/login (IdToken or AccessToken)
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    LoginRequest:
+      type: object
+      properties:
+        mobile:
+          type: string
+          example: "+447123456789"
+        password:
+          type: string
+          example: "SecurePass1"
+      required: [mobile, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        id_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+          example: 3600
+      required: [access_token, id_token, refresh_token, expires_in]
+
+    ValidateInviteRequest:
+      type: object
+      properties:
+        activation_code:
+          type: string
+          example: "ABCD1234"
+      required: [activation_code]
+
+    ValidateInviteResponse:
+      type: object
+      properties:
+        first_name:
+          type: string
+          example: "Alice"
+        last_name:
+          type: string
+          example: "Smith"
+        mobile:
+          type: string
+          example: "+447123456789"
+        relationship:
+          type: string
+          enum: [spouse, other]
+      required: [first_name, last_name, mobile, relationship]
+
+    RegisterRequest:
+      type: object
+      properties:
+        activation_code:
+          type: string
+          example: "ABCD1234"
+        first_name:
+          type: string
+          example: "Alice"
+        last_name:
+          type: string
+          example: "Smith"
+        email:
+          type: string
+          format: email
+          example: "alice@example.com"
+        mobile:
+          type: string
+          example: "+447123456789"
+        password:
+          type: string
+          example: "SecurePass1"
+        birthday_day:
+          type: integer
+          minimum: 1
+          maximum: 31
+          example: 15
+        birthday_month:
+          type: integer
+          minimum: 1
+          maximum: 12
+          example: 6
+        membership_type:
+          type: string
+          enum: [individual, family]
+          description: Required when relationship is 'other'. Omit when relationship is 'spouse'.
+          example: "individual"
+        address_line1:
+          type: string
+        address_line2:
+          type: string
+        town:
+          type: string
+        post_code:
+          type: string
+        state_of_origin:
+          type: string
+          description: Nigerian state
+        lga:
+          type: string
+          description: Local Government Area (dynamic based on state_of_origin)
+        relationship_status:
+          type: string
+          enum: [single, married, divorced, widowed]
+        emergency_contact_name:
+          type: string
+        emergency_contact_phone:
+          type: string
+      required:
+        - activation_code
+        - first_name
+        - last_name
+        - email
+        - mobile
+        - password
+        - birthday_day
+        - birthday_month
+
+    SendInviteRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          example: "Bob"
+        last_name:
+          type: string
+          example: "Jones"
+        mobile:
+          type: string
+          example: "+447111111111"
+        relationship:
+          type: string
+          enum: [spouse, other]
+      required: [first_name, last_name, mobile, relationship]
+
+paths:
+  /auth/login:
+    post:
+      summary: Login
+      description: Authenticate with phone number and password. Returns JWT tokens.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid phone number or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /invites/validate:
+    post:
+      summary: Validate invite code
+      description: |
+        Checks that an invite code is valid, unused, and not expired.
+        Returns pre-fill data for the registration form.
+        Marks the invite as expired if the expiry date has passed.
+      operationId: validateInvite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateInviteRequest'
+      responses:
+        '200':
+          description: Invite is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateInviteResponse'
+        '400':
+          description: Invite has already been used or has expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invalid activation code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/register:
+    post:
+      summary: Register new member
+      description: |
+        Creates a new member account. Requires a valid invite code.
+        - If relationship is 'other': creates a new membership and invoice
+        - If relationship is 'spouse': links to the inviter's existing membership
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Registration successful"
+        '400':
+          description: Validation error or missing membership_type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invalid activation code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /invites:
+    post:
+      summary: Send an invite
+      description: |
+        Sends an SMS invite to a new member. Requires authentication.
+        The invite is linked to the authenticated member as the sender.
+        If relationship is 'spouse', only one spouse invite is permitted per membership.
+      operationId: sendInvite
+      security:
+        - CognitoJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendInviteRequest'
+      responses:
+        '200':
+          description: Invite sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Invite sent."
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Authenticated user not found in members table
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
