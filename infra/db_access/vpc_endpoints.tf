@@ -26,18 +26,25 @@ resource "aws_security_group" "vpc_endpoints" {
   }
 }
 
-resource "aws_vpc_endpoint" "ssm" {
-  vpc_id              = data.aws_vpc.nib.id
-  service_name        = "com.amazonaws.${var.aws_region}.ssm"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [data.aws_subnet.private.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Project     = "nib"
-    Environment = var.env
+data "aws_security_group" "shared_endpoints" {
+  filter {
+    name   = "group-name"
+    values = ["nib-interface-endpoints-sg"]
   }
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.nib.id]
+  }
+}
+
+resource "aws_security_group_rule" "ec2_to_ssm_endpoint" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = data.aws_security_group.shared_endpoints.id
+  source_security_group_id = aws_security_group.ec2.id
+  description              = "Allow SSM access from EC2 bastion"
 }
 
 resource "aws_vpc_endpoint" "ssmmessages" {
