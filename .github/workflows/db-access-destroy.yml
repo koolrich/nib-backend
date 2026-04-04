@@ -34,4 +34,4 @@ jobs:
         run: |
           cd infra/db_access
           terraform init
-          terraform destroy -var-file=dev.tfvars -auto-approve
+          terraform destroy -var-file=tfvars -auto-approve

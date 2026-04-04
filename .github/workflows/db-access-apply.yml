@@ -34,4 +34,4 @@ jobs:
         run: |
           cd infra/db_access
           terraform init
-          terraform apply -var-file=dev.tfvars -auto-approve
+          terraform apply -var-file=tfvars -auto-approve
