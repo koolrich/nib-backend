@@ -16,15 +16,20 @@ def generate_api_gw_event(body: Optional[dict[str, Any]], cognito_sub: Optional[
     request_context: dict[str, Any] = {
         "accountId": "123456789012",
         "apiId": "api-id",
+        "domainName": "api-id.execute-api.eu-west-2.amazonaws.com",
+        "domainPrefix": "api-id",
         "stage": "dev",
-        "protocol": "HTTP/1.1",
-        "identity": {"sourceIp": "127.0.0.1"},
         "requestId": "test-request-id",
-        "requestTime": "01/Jan/2021:12:00:00 +0000",
-        "requestTimeEpoch": 1609502400000,
-        "resourcePath": "/send-invite",
-        "httpMethod": "POST",
-        "path": "/dev/send-invite",
+        "routeKey": "POST /test",
+        "time": "01/Jan/2021:12:00:00 +0000",
+        "timeEpoch": 1609502400000,
+        "http": {
+            "method": "POST",
+            "path": "/test",
+            "protocol": "HTTP/1.1",
+            "sourceIp": "127.0.0.1",
+            "userAgent": "test",
+        },
     }
 
     if cognito_sub:
@@ -35,11 +40,11 @@ def generate_api_gw_event(body: Optional[dict[str, Any]], cognito_sub: Optional[
         }
 
     return {
-        "resource": "/send-invite",
-        "path": "/send-invite",
-        "httpMethod": "POST",
-        "headers": {},
-        "multiValueHeaders": {},
+        "version": "2.0",
+        "routeKey": "POST /test",
+        "rawPath": "/test",
+        "rawQueryString": "",
+        "headers": {"content-type": "application/json"},
         "requestContext": request_context,
         "body": "" if body is None else json.dumps(body),
         "isBase64Encoded": False,
