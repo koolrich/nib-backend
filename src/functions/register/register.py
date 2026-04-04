@@ -34,6 +34,7 @@ def handler(event: Dict[str, Any], context: LambdaContext):
 def register(event: Dict[str, Any]):
     conn = None
     cognito_created = False
+    cognito_username = None
     cognito_sub = None
 
     try:
@@ -49,9 +50,9 @@ def register(event: Dict[str, Any]):
             return {"statusCode": 400, "body": json.dumps({"error": "membership_type is required"})}
 
         # Cognito sign up — done before DB writes so we have cognito_sub
-        cognito_sub = sign_up(request.mobile, request.password)
+        cognito_username, cognito_sub = sign_up(request.mobile, request.password)
         cognito_created = True
-        confirm_sign_up(cognito_sub)
+        confirm_sign_up(cognito_username)
 
         # Create member record
         member_id = insert_member(conn, request, cognito_sub, invite["invited_by"], invite["is_legacy"])
@@ -81,9 +82,9 @@ def register(event: Dict[str, Any]):
         return {"statusCode": 400, "body": json.dumps({"error": str(ve)})}
 
     except Exception as e:
-        if cognito_created and cognito_sub:
+        if cognito_created and cognito_username:
             try:
-                delete_user(cognito_sub)
+                delete_user(cognito_username)
                 logger.info("Rolled back Cognito user", extra={"cognito_sub": cognito_sub})
             except Exception as ce:
                 logger.exception("Failed to rollback Cognito user", extra={"error": str(ce)})

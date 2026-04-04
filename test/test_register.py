@@ -50,7 +50,7 @@ def _setup_mock_db(mock_db, invite, member_id="member-uuid-1234", membership_id=
 
 
 @patch("functions.register.register.get_connection")
-@patch("functions.register.register.sign_up", return_value="cognito-sub-123")
+@patch("functions.register.register.sign_up", return_value=("cognito-username-123", "cognito-sub-123"))
 @patch("functions.register.register.confirm_sign_up")
 def test_register_other_returns_201(mock_confirm, mock_signup, mock_get_connection, mock_db):
     mock_get_connection.return_value = mock_db
@@ -60,12 +60,12 @@ def test_register_other_returns_201(mock_confirm, mock_signup, mock_get_connecti
 
     assert result["statusCode"] == 201
     mock_signup.assert_called_once_with("+447123456789", "SecurePass1")
-    mock_confirm.assert_called_once_with("cognito-sub-123")
+    mock_confirm.assert_called_once_with("cognito-username-123")
     mock_db.commit.assert_called_once()
 
 
 @patch("functions.register.register.get_connection")
-@patch("functions.register.register.sign_up", return_value="cognito-sub-123")
+@patch("functions.register.register.sign_up", return_value=("cognito-username-123", "cognito-sub-123"))
 @patch("functions.register.register.confirm_sign_up")
 def test_register_spouse_returns_201(mock_confirm, mock_signup, mock_get_connection, mock_db):
     mock_get_connection.return_value = mock_db
@@ -128,7 +128,7 @@ def test_register_missing_required_fields_returns_400(mock_get_connection, mock_
 
 
 @patch("functions.register.register.get_connection")
-@patch("functions.register.register.sign_up", return_value="cognito-sub-123")
+@patch("functions.register.register.sign_up", return_value=("cognito-username-123", "cognito-sub-123"))
 @patch("functions.register.register.confirm_sign_up")
 @patch("functions.register.register.delete_user")
 def test_register_db_failure_rolls_back_cognito(mock_delete, mock_confirm, mock_signup, mock_get_connection, mock_db):
@@ -145,5 +145,5 @@ def test_register_db_failure_rolls_back_cognito(mock_delete, mock_confirm, mock_
     result = register.handler(generate_api_gw_event(VALID_BODY), generate_context())
 
     assert result["statusCode"] == 500
-    mock_delete.assert_called_once_with("cognito-sub-123")
+    mock_delete.assert_called_once_with("cognito-username-123")
     mock_db.rollback.assert_called_once()

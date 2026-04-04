@@ -32,47 +32,48 @@ def _get_client():
 
 
 @tracer.capture_method(name="CognitoSignUp")
-def sign_up(mobile: str, password: str) -> str:
-    """Returns cognito_sub. A UUID is used as the Cognito username; sub is used for all subsequent admin operations."""
+def sign_up(mobile: str, password: str) -> tuple[str, str]:
+    """Returns (username, cognito_sub). UUID username is used for admin operations; sub is stored in DB."""
     import uuid as _uuid
     config = _get_cognito_config()
     client = _get_client()
 
+    username = str(_uuid.uuid4())
     response = client.sign_up(
         ClientId=config["/nib/cognito/app_client_id"],
-        Username=str(_uuid.uuid4()),
+        Username=username,
         Password=password,
         UserAttributes=[{"Name": "phone_number", "Value": mobile}],
     )
-    return response["UserSub"]
+    return username, response["UserSub"]
 
 
 @tracer.capture_method(name="CognitoConfirmSignUp")
-def confirm_sign_up(cognito_sub: str):
+def confirm_sign_up(username: str):
     config = _get_cognito_config()
     client = _get_client()
     user_pool_id = config["/nib/cognito/user_pool_id"]
 
     client.admin_confirm_sign_up(
         UserPoolId=user_pool_id,
-        Username=cognito_sub,
+        Username=username,
     )
 
     client.admin_update_user_attributes(
         UserPoolId=user_pool_id,
-        Username=cognito_sub,
+        Username=username,
         UserAttributes=[{"Name": "phone_number_verified", "Value": "true"}],
     )
 
 
 @tracer.capture_method(name="CognitoDeleteUser")
-def delete_user(cognito_sub: str):
+def delete_user(username: str):
     config = _get_cognito_config()
     client = _get_client()
 
     client.admin_delete_user(
         UserPoolId=config["/nib/cognito/user_pool_id"],
-        Username=cognito_sub,
+        Username=username,
     )
 
 
