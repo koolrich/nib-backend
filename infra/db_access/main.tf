@@ -40,8 +40,8 @@ data "aws_subnet" "private" {
 
 data "aws_route_table" "private" {
   filter {
-    name   = "tag:Environment"
-    values = [var.env]
+    name   = "association.main"
+    values = ["true"]
   }
   filter {
     name   = "vpc-id"
