@@ -18,12 +18,3 @@ variable "instance_type" {
   default = "t3.micro"
 }
 
-variable "role_arn" {
-  type    = string
-  default = "arn:aws:iam::021891595998:role/TerraformUserRole"
-}
-
-variable "role_session_name" {
-  type    = string
-  default = "terraform-db-access-session"
-}
