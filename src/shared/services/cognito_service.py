@@ -51,10 +51,17 @@ def sign_up(mobile: str, password: str) -> str:
 def confirm_sign_up(cognito_sub: str):
     config = _get_cognito_config()
     client = _get_client()
+    user_pool_id = config["/nib/cognito/user_pool_id"]
 
     client.admin_confirm_sign_up(
-        UserPoolId=config["/nib/cognito/user_pool_id"],
+        UserPoolId=user_pool_id,
         Username=cognito_sub,
+    )
+
+    client.admin_update_user_attributes(
+        UserPoolId=user_pool_id,
+        Username=cognito_sub,
+        UserAttributes=[{"Name": "phone_number_verified", "Value": "true"}],
     )
 
 

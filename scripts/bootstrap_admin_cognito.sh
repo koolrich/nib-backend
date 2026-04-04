@@ -36,9 +36,16 @@ SIGNUP_RESPONSE=$(aws cognito-idp sign-up \
 COGNITO_SUB=$(echo "$SIGNUP_RESPONSE" | jq -r '.UserSub')
 
 echo "Confirming Cognito user..."
-aws cognito-idp admin-confirm-sign-up \
+MSYS_NO_PATHCONV=1 aws cognito-idp admin-confirm-sign-up \
   --user-pool-id "$USER_POOL_ID" \
   --username "$USERNAME" \
+  --region "$AWS_REGION"
+
+echo "Verifying phone number..."
+MSYS_NO_PATHCONV=1 aws cognito-idp admin-update-user-attributes \
+  --user-pool-id "$USER_POOL_ID" \
+  --username "$USERNAME" \
+  --user-attributes Name=phone_number_verified,Value=true \
   --region "$AWS_REGION"
 
 echo ""
