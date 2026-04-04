@@ -140,7 +140,8 @@ resource "aws_iam_policy" "nib_lambda_policy" {
           "cognito-idp:AdminConfirmSignUp",
           "cognito-idp:AdminDeleteUser",
           "cognito-idp:AdminInitiateAuth",
-          "cognito-idp:AdminGetUser"
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminUpdateUserAttributes"
         ]
         Resource = "arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/${module.cognito.user_pool_id}"
       }
