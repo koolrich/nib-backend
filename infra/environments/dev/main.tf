@@ -159,29 +159,6 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-resource "aws_iam_role_policy" "terraform_role_apigateway" {
-  name = "TerraformRoleAPIGatewayAccess"
-  role = "TerraformUserRole"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "APIGatewayAccess"
-        Effect = "Allow"
-        Action = [
-          "apigateway:POST",
-          "apigateway:GET",
-          "apigateway:PUT",
-          "apigateway:PATCH",
-          "apigateway:DELETE",
-          "apigateway:TagResource"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
 
 module "sns_endpoint" {
   source             = "../../modules/vpc_interface_endpoint"
