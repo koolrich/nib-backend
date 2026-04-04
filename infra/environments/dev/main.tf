@@ -298,6 +298,42 @@ module "lambda_function_login" {
   depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
 }
 
+module "lambda_function_events" {
+  source                       = "../../modules/lambda"
+  lambda_artifact_bucket       = var.lambda_artifact_bucket
+  lambda_s3_key                = "functions/events.zip"
+  lambda_function_name         = "events"
+  source_code_hash             = filebase64sha256("events.zip")
+  lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
+  lambda_handler               = "src.functions.events.events.handler"
+  lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
+  lambda_environment_variables = { ENV = "dev" }
+  vpc_subnet_ids               = module.vpc.lambda_subnet_ids
+  vpc_id                       = module.vpc.vpc_id
+  lambda_sg_id                 = module.vpc.lambda_sg_id
+  project                      = var.project
+  environment                  = var.environment
+  depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
+}
+
+module "lambda_function_members" {
+  source                       = "../../modules/lambda"
+  lambda_artifact_bucket       = var.lambda_artifact_bucket
+  lambda_s3_key                = "functions/members.zip"
+  lambda_function_name         = "members"
+  source_code_hash             = filebase64sha256("members.zip")
+  lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
+  lambda_handler               = "src.functions.members.members.handler"
+  lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
+  lambda_environment_variables = { ENV = "dev" }
+  vpc_subnet_ids               = module.vpc.lambda_subnet_ids
+  vpc_id                       = module.vpc.vpc_id
+  lambda_sg_id                 = module.vpc.lambda_sg_id
+  project                      = var.project
+  environment                  = var.environment
+  depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
+}
+
 module "api_gateway" {
   source                = "../../modules/api_gateway"
   project               = var.project
@@ -327,6 +363,56 @@ module "api_gateway" {
       lambda_invoke_arn = module.lambda_function_login.invoke_arn
       lambda_arn        = module.lambda_function_login.function_arn
       requires_auth     = false
+    }
+    "POST /events" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "GET /events" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "GET /events/{id}" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "PATCH /events/{id}" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "POST /events/{id}/items" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "POST /events/{id}/pledges" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "PATCH /events/{id}/pledges/{pledgeId}" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "DELETE /events/{id}/pledges/{pledgeId}" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "POST /events/{id}/contributions" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "GET /members/me/pledges" = {
+      lambda_invoke_arn = module.lambda_function_members.invoke_arn
+      lambda_arn        = module.lambda_function_members.function_arn
+      requires_auth     = true
     }
   }
 }

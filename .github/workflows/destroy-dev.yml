@@ -33,7 +33,7 @@ jobs:
         - name: Create placeholder zips for Terraform hash functions
           run: |
             cd infra/environments/dev
-            for name in layer send_invite validate_invite register login; do
+            for name in layer send_invite validate_invite register login events members; do
               touch dummy && zip "${name}.zip" dummy && rm dummy
             done
 
