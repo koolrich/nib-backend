@@ -20,11 +20,11 @@ read -rsp "Admin password: " PASSWORD
 echo
 
 echo "Fetching Cognito config from SSM..."
-USER_POOL_ID=$(aws ssm get-parameter --name "$SSM_USER_POOL_ID" --region "$AWS_REGION" --query "Parameter.Value" --output text)
-APP_CLIENT_ID=$(aws ssm get-parameter --name "$SSM_APP_CLIENT_ID" --region "$AWS_REGION" --query "Parameter.Value" --output text)
+USER_POOL_ID=$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --name "$SSM_USER_POOL_ID" --region "$AWS_REGION" --query "Parameter.Value" --output text)
+APP_CLIENT_ID=$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --name "$SSM_APP_CLIENT_ID" --region "$AWS_REGION" --query "Parameter.Value" --output text)
 
 echo "Creating Cognito user..."
-USERNAME=$(uuidgen | tr '[:upper:]' '[:lower:]')
+USERNAME=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python -c "import uuid; print(uuid.uuid4())" 2>/dev/null || powershell -Command "[guid]::NewGuid().ToString()" 2>/dev/null)
 
 SIGNUP_RESPONSE=$(aws cognito-idp sign-up \
   --client-id "$APP_CLIENT_ID" \

@@ -3,7 +3,7 @@ from typing import Dict, Any
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.parser import parse
-from aws_lambda_powertools.utilities.parser.envelopes import ApiGatewayEnvelope
+from aws_lambda_powertools.utilities.parser.envelopes import ApiGatewayV2Envelope
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from pydantic import ValidationError
 
@@ -37,7 +37,7 @@ def register(event: Dict[str, Any]):
     cognito_sub = None
 
     try:
-        request = parse(event=event, model=RegisterRequest, envelope=ApiGatewayEnvelope)
+        request = parse(event=event, model=RegisterRequest, envelope=ApiGatewayV2Envelope)
 
         conn = get_connection()
 

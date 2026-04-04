@@ -3,7 +3,7 @@ from typing import Dict, Any
 
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.parser import parse
-from aws_lambda_powertools.utilities.parser.envelopes import ApiGatewayEnvelope
+from aws_lambda_powertools.utilities.parser.envelopes import ApiGatewayV2Envelope
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
@@ -24,7 +24,7 @@ def handler(event: Dict[str, Any], context: LambdaContext):
 @tracer.capture_method
 def login(event: Dict[str, Any]):
     try:
-        request = parse(event=event, model=LoginRequest, envelope=ApiGatewayEnvelope)
+        request = parse(event=event, model=LoginRequest, envelope=ApiGatewayV2Envelope)
 
         auth_result = initiate_auth(request.mobile, request.password)
 

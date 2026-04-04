@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from typing import Dict, Any
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from aws_lambda_powertools.utilities.parser import parse
-from aws_lambda_powertools.utilities.parser.envelopes import ApiGatewayEnvelope
+from aws_lambda_powertools.utilities.parser.envelopes import ApiGatewayV2Envelope
 from aws_lambda_powertools import Logger
 from shared.models.invite_request import InviteRequest
 from shared.instrumentation.tracer import tracer
@@ -34,7 +34,7 @@ def send_invite(event: Dict[str, Any]):
     try:
         conn = get_connection()
         invite_request = parse(
-            event=event, model=InviteRequest, envelope=ApiGatewayEnvelope
+            event=event, model=InviteRequest, envelope=ApiGatewayV2Envelope
         )
 
         cognito_sub = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]
