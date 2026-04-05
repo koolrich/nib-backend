@@ -13,6 +13,23 @@ logger = Logger()
 INVITE_EXPIRY_DAYS = 30
 
 
+@tracer.capture_method(name="CheckMobileAlreadyMember")
+def mobile_is_member(conn, mobile: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute("SELECT EXISTS (SELECT 1 FROM members WHERE mobile = %s)", (mobile,))
+        return cur.fetchone()[0]
+
+
+@tracer.capture_method(name="CheckPendingInviteExists")
+def pending_invite_exists(conn, mobile: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT EXISTS (SELECT 1 FROM invites WHERE mobile = %s AND status = %s)",
+            (mobile, InviteStatus.PENDING.value),
+        )
+        return cur.fetchone()[0]
+
+
 @tracer.capture_method(name="InsertInvite")
 def insert_invite(conn, invite_request: InviteRequest, activation_code: str, invited_by: str):
     expires_at = datetime.now(timezone.utc) + timedelta(days=INVITE_EXPIRY_DAYS)

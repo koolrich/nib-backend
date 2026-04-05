@@ -7,6 +7,7 @@ class InviteRequest(BaseModel):
     last_name: str
     mobile: str
     relationship: str
+    is_legacy: bool = False
 
     @field_validator("first_name", "last_name", "mobile", "relationship")
     @classmethod

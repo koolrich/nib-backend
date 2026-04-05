@@ -15,8 +15,10 @@ from shared.services.invite_service import (
     insert_invite,
     publish_invite_sms,
     generate_activation_code,
+    mobile_is_member,
+    pending_invite_exists,
 )
-from shared.services.member_service import get_member_by_cognito_sub
+from shared.services.member_service import get_member_context
 
 
 logger = Logger()
@@ -38,9 +40,18 @@ def send_invite(event: Dict[str, Any]):
         )
 
         cognito_sub = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]
-        member = get_member_by_cognito_sub(conn, cognito_sub)
+        member = get_member_context(conn, cognito_sub)
         if not member:
             return {"statusCode": 403, "body": json.dumps({"error": "Member not found"})}
+
+        if invite_request.is_legacy and member["member_role"] not in ("executive", "admin"):
+            return {"statusCode": 403, "body": json.dumps({"error": "Only executives and admins can send legacy invites"})}
+
+        if mobile_is_member(conn, invite_request.mobile):
+            return {"statusCode": 409, "body": json.dumps({"error": "This mobile number is already registered as a member"})}
+
+        if pending_invite_exists(conn, invite_request.mobile):
+            return {"statusCode": 409, "body": json.dumps({"error": "A pending invite already exists for this mobile number"})}
 
         activation_code = generate_activation_code()
         logger.debug(
