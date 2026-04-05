@@ -2,6 +2,8 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from shared.instrumentation.tracer import tracer
+from shared.reference_data.invoice_status import InvoiceStatus
+from shared.reference_data.membership_period_status import MembershipPeriodStatus
 from aws_lambda_powertools import Logger
 
 logger = Logger()
@@ -51,7 +53,7 @@ def insert_membership_period(conn, membership_id: str) -> str:
             VALUES (%s, %s, %s, %s)
             RETURNING id
             """,
-            (membership_id, today, period_end, "active"),
+            (membership_id, today, period_end, MembershipPeriodStatus.ACTIVE.value),
         )
         row = cur.fetchone()
         return str(row["id"])
@@ -76,5 +78,5 @@ def insert_invoice(conn, membership_period_id: str, invoice_number: str, amount_
                 amount_due, status
             ) VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (membership_period_id, invoice_number, today, today, amount_due, "unpaid"),
+            (membership_period_id, invoice_number, today, today, amount_due, InvoiceStatus.UNPAID.value),
         )
