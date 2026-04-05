@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, field_validator, ValidationInfo
+from datetime import date
+from typing import Optional
+from pydantic import BaseModel, field_validator, ValidationInfo
 import re
 
 
@@ -8,6 +10,7 @@ class InviteRequest(BaseModel):
     mobile: str
     relationship: str
     is_legacy: bool = False
+    date_joined: Optional[date] = None
 
     @field_validator("first_name", "last_name", "mobile", "relationship")
     @classmethod

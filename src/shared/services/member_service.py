@@ -29,7 +29,7 @@ def get_member_context(conn, cognito_sub: str) -> dict | None:
 
 
 @tracer.capture_method(name="InsertMember")
-def insert_member(conn, request: RegisterRequest, cognito_sub: str, invited_by: str, is_legacy: bool) -> str:
+def insert_member(conn, request: RegisterRequest, cognito_sub: str, invited_by: str, is_legacy: bool, date_joined=None) -> str:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -68,7 +68,7 @@ def insert_member(conn, request: RegisterRequest, cognito_sub: str, invited_by: 
                 "member",
                 "active",
                 is_legacy,
-                date.today(),
+                date_joined if date_joined else date.today(),
             ),
         )
         row = cur.fetchone()

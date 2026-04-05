@@ -47,6 +47,9 @@ def send_invite(event: Dict[str, Any]):
         if invite_request.is_legacy and member["member_role"] not in ("executive", "admin"):
             return {"statusCode": 403, "body": json.dumps({"error": "Only executives and admins can send legacy invites"})}
 
+        if invite_request.is_legacy and not invite_request.date_joined:
+            return {"statusCode": 400, "body": json.dumps({"error": "date_joined is required for legacy invites"})}
+
         if mobile_is_member(conn, invite_request.mobile):
             return {"statusCode": 409, "body": json.dumps({"error": "This mobile number is already registered as a member"})}
 

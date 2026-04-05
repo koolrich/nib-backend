@@ -96,8 +96,20 @@ def test_handler_403_legacy_requires_executive(mock_pending, mock_is_member, moc
 @patch("functions.send_invite.send_invite.get_member_context", return_value=EXEC_MEMBER)
 @patch("functions.send_invite.send_invite.mobile_is_member", return_value=False)
 @patch("functions.send_invite.send_invite.pending_invite_exists", return_value=False)
-def test_handler_200_legacy_allowed_for_executive(mock_pending, mock_is_member, mock_ctx, mock_conn, mock_boto, mock_db, mock_sns):
+def test_handler_400_legacy_missing_date_joined(mock_pending, mock_is_member, mock_ctx, mock_conn, mock_boto, mock_db, mock_sns):
     mock_conn.return_value = mock_db
     mock_boto.return_value = mock_sns
     result = send_invite.handler(generate_api_gw_event({**VALID_BODY, "is_legacy": True}, cognito_sub=COGNITO_SUB), generate_context())
+    assert result["statusCode"] == 400
+
+
+@patch("boto3.client")
+@patch("functions.send_invite.send_invite.get_connection")
+@patch("functions.send_invite.send_invite.get_member_context", return_value=EXEC_MEMBER)
+@patch("functions.send_invite.send_invite.mobile_is_member", return_value=False)
+@patch("functions.send_invite.send_invite.pending_invite_exists", return_value=False)
+def test_handler_200_legacy_allowed_for_executive(mock_pending, mock_is_member, mock_ctx, mock_conn, mock_boto, mock_db, mock_sns):
+    mock_conn.return_value = mock_db
+    mock_boto.return_value = mock_sns
+    result = send_invite.handler(generate_api_gw_event({**VALID_BODY, "is_legacy": True, "date_joined": "2020-01-01"}, cognito_sub=COGNITO_SUB), generate_context())
     assert result["statusCode"] == 200

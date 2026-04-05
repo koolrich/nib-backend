@@ -38,8 +38,8 @@ def insert_invite(conn, invite_request: InviteRequest, activation_code: str, inv
             """
             INSERT INTO invites (
                 first_name, last_name, mobile, activation_code,
-                invited_by, relationship, status, expires_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                invited_by, relationship, status, is_legacy, expires_at, date_joined
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 invite_request.first_name,
@@ -49,7 +49,9 @@ def insert_invite(conn, invite_request: InviteRequest, activation_code: str, inv
                 invited_by,
                 invite_request.relationship,
                 InviteStatus.PENDING.value,
+                invite_request.is_legacy,
                 expires_at,
+                invite_request.date_joined,
             ),
         )
 
@@ -60,7 +62,7 @@ def get_invite_by_activation_code(conn, activation_code: str):
         cur.execute(
             """
             SELECT id, status, relationship, mobile, first_name, last_name,
-                   invited_by, is_legacy, expires_at
+                   invited_by, is_legacy, expires_at, date_joined
             FROM invites
             WHERE activation_code = %s
             """,

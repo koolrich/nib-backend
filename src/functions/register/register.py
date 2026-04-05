@@ -55,7 +55,8 @@ def register(event: Dict[str, Any]):
         confirm_sign_up(cognito_username)
 
         # Create member record
-        member_id = insert_member(conn, request, cognito_sub, invite["invited_by"], invite["is_legacy"])
+        date_joined = invite["date_joined"] if invite["is_legacy"] and invite["date_joined"] else None
+        member_id = insert_member(conn, request, cognito_sub, invite["invited_by"], invite["is_legacy"], date_joined)
 
         # Membership setup
         if invite["relationship"] == "other":
