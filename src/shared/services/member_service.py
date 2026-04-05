@@ -86,6 +86,55 @@ def get_member_membership_id(conn, member_id: str) -> str:
         return str(row["membership_id"]) if row else None
 
 
+@tracer.capture_method(name="GetMemberById")
+def get_member_by_id(conn, member_id: str) -> dict | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, first_name, last_name, email, mobile, address_line1, address_line2,
+                   town, post_code, state_of_origin, lga, birthday_day, birthday_month,
+                   relationship_status, emergency_contact_name, emergency_contact_phone,
+                   member_role, status, is_legacy, date_joined
+            FROM members WHERE id = %s
+            """,
+            (member_id,),
+        )
+        return cur.fetchone()
+
+
+@tracer.capture_method(name="UpdateMember")
+def update_member(conn, member_id: str, fields: dict) -> dict | None:
+    profile_fields = {
+        "first_name", "last_name", "email", "mobile", "address_line1", "address_line2",
+        "town", "post_code", "state_of_origin", "lga", "birthday_day", "birthday_month",
+        "relationship_status", "emergency_contact_name", "emergency_contact_phone",
+    }
+    restricted_fields = {"member_role", "status"}
+    allowed = profile_fields | restricted_fields
+
+    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if not updates:
+        return get_member_by_id(conn, member_id)
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
+    values = list(updates.values()) + [member_id]
+
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE members
+            SET {set_clause}, updated_at = NOW()
+            WHERE id = %s
+            RETURNING id, first_name, last_name, email, mobile, address_line1, address_line2,
+                      town, post_code, state_of_origin, lga, birthday_day, birthday_month,
+                      relationship_status, emergency_contact_name, emergency_contact_phone,
+                      member_role, status, updated_at
+            """,
+            values,
+        )
+        return cur.fetchone()
+
+
 @tracer.capture_method(name="UpdateMemberMembershipId")
 def update_member_membership_id(conn, member_id: str, membership_id: str):
     with conn.cursor() as cur:

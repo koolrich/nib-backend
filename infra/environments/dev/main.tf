@@ -414,6 +414,11 @@ module "api_gateway" {
       lambda_arn        = module.lambda_function_members.function_arn
       requires_auth     = true
     }
+    "PATCH /members/{id}" = {
+      lambda_invoke_arn = module.lambda_function_members.invoke_arn
+      lambda_arn        = module.lambda_function_members.function_arn
+      requires_auth     = true
+    }
   }
 }
 
