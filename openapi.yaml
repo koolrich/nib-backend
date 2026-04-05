@@ -3,8 +3,8 @@ info:
   title: NIB API
   description: |
     Backend API for NIB (Ndi Igbo Basingstoke) — a members-only community association app.
-    Invite-only registration. All protected endpoints require a Bearer JWT token obtained from POST /auth/login.
-  version: 1.0.0
+    Invite-only registration. All protected endpoints require a Bearer JWT (ID token) obtained from POST /auth/login.
+  version: 1.1.0
 
 servers:
   - url: https://{apiId}.execute-api.eu-west-2.amazonaws.com
@@ -18,7 +18,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT token obtained from POST /auth/login (IdToken or AccessToken)
+      description: ID token obtained from POST /auth/login
 
   schemas:
     Error:
@@ -128,7 +128,7 @@ components:
           description: Nigerian state
         lga:
           type: string
-          description: Local Government Area (dynamic based on state_of_origin)
+          description: Local Government Area
         relationship_status:
           type: string
           enum: [single, married, divorced, widowed]
@@ -163,11 +163,177 @@ components:
           enum: [spouse, other]
       required: [first_name, last_name, mobile, relationship]
 
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: "August General Meeting"
+        date:
+          type: string
+          format: date
+          example: "2026-08-12"
+        type:
+          type: string
+          enum: [pledge, contribution]
+        status:
+          type: string
+          enum: [upcoming, completed]
+        description:
+          type: string
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        total_contributions:
+          type: number
+          example: 250.00
+        total_pledges:
+          type: integer
+          example: 4
+
+    EventItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Crates of Coke"
+        unit:
+          type: string
+          example: "crates"
+        quantity_needed:
+          type: number
+          example: 10
+        quantity_pledged:
+          type: number
+          example: 7
+        quantity_remaining:
+          type: number
+          example: 3
+        is_available:
+          type: boolean
+          example: true
+
+    Pledge:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        member_name:
+          type: string
+          example: "Obi Chukwu"
+        event_item_id:
+          type: string
+          format: uuid
+        item_name:
+          type: string
+          example: "Crates of Coke"
+        quantity:
+          type: number
+          example: 5
+        status:
+          type: string
+          enum: [pledged, cancelled]
+        created_at:
+          type: string
+          format: date-time
+
+    Contribution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+          nullable: true
+        member_name:
+          type: string
+          example: "Ada Obi"
+          description: "Anonymous" when member_id is null
+        pledge_id:
+          type: string
+          format: uuid
+          nullable: true
+        amount:
+          type: number
+          example: 50.00
+        received_at:
+          type: string
+          format: date-time
+        note:
+          type: string
+          nullable: true
+
+    MyPledge:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        event_title:
+          type: string
+          example: "August General Meeting"
+        event_date:
+          type: string
+          format: date
+        item_name:
+          type: string
+          example: "Crates of Coke"
+        unit:
+          type: string
+          example: "crates"
+        quantity:
+          type: number
+          example: 5
+        status:
+          type: string
+          enum: [pledged, cancelled]
+        contribution:
+          type: object
+          nullable: true
+          properties:
+            amount:
+              type: number
+              example: 50.00
+            received_at:
+              type: string
+              format: date-time
+        created_at:
+          type: string
+          format: date-time
+
 paths:
   /auth/login:
     post:
       summary: Login
-      description: Authenticate with phone number and password. Returns JWT tokens.
+      description: Authenticate with phone number and password. Returns JWT tokens. Use the id_token as the Bearer token for all protected endpoints.
       operationId: login
       requestBody:
         required: true
@@ -182,12 +348,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '401':
           description: Invalid phone number or password
           content:
@@ -205,9 +365,9 @@ paths:
     post:
       summary: Validate invite code
       description: |
-        Checks that an invite code is valid, unused, and not expired.
+        Checks that an invite code is valid, unused and not expired.
         Returns pre-fill data for the registration form.
-        Marks the invite as expired if the expiry date has passed.
+        The frontend should carry the activation_code forward to the register call — the user only types it once.
       operationId: validateInvite
       requestBody:
         required: true
@@ -223,7 +383,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ValidateInviteResponse'
         '400':
-          description: Invite has already been used or has expired
+          description: Invite already used or expired
           content:
             application/json:
               schema:
@@ -239,9 +399,9 @@ paths:
     post:
       summary: Register new member
       description: |
-        Creates a new member account. Requires a valid invite code.
-        - If relationship is 'other': creates a new membership and invoice
-        - If relationship is 'spouse': links to the inviter's existing membership
+        Creates a new member account using a valid invite code.
+        - relationship = 'other': creates a new membership and invoice
+        - relationship = 'spouse': links to the inviter's existing membership
       operationId: register
       requestBody:
         required: true
@@ -272,20 +432,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '500':
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   /invites:
     post:
       summary: Send an invite
-      description: |
-        Sends an SMS invite to a new member. Requires authentication.
-        The invite is linked to the authenticated member as the sender.
-        If relationship is 'spouse', only one spouse invite is permitted per membership.
+      description: Sends an SMS invite. Requires authentication. The invite is linked to the authenticated member as the sender.
       operationId: sendInvite
       security:
         - CognitoJWT: []
@@ -313,13 +464,521 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Authenticated user not found in members table
+          description: Authenticated member not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '500':
-          description: Unexpected error
+
+  /events:
+    post:
+      summary: Create event
+      description: Create a new event. Executive or admin only.
+      operationId: createEvent
+      security:
+        - CognitoJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: "August General Meeting"
+                date:
+                  type: string
+                  format: date
+                  example: "2026-08-12"
+                type:
+                  type: string
+                  enum: [pledge, contribution]
+                description:
+                  type: string
+                  nullable: true
+              required: [title, date, type]
+      responses:
+        '201':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Missing required fields or invalid type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: List all events
+      description: Returns all events ordered by date descending. Frontend filters by status as needed.
+      operationId: listEvents
+      security:
+        - CognitoJWT: []
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+
+  /events/{id}:
+    get:
+      summary: Get event details
+      description: |
+        Returns full event details including items (pledge events only), pledges and contributions.
+        member_name is "Anonymous" where member_id is null on contributions.
+      operationId: getEvent
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Event'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/EventItem'
+                        description: Only present for pledge events
+                      pledges:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Pledge'
+                      contributions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Contribution'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Edit event
+      description: |
+        Edit event fields or mark as completed. Executive or admin only.
+        All fields are optional — only provided fields are updated.
+        Type cannot be changed if items or pledges already exist.
+        Completed events cannot be edited.
+      operationId: updateEvent
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                date:
+                  type: string
+                  format: date
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum: [pledge, contribution]
+                status:
+                  type: string
+                  enum: [upcoming, completed]
+      responses:
+        '200':
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Event already completed or type change not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /events/{id}/items:
+    post:
+      summary: Add items to a pledge event
+      description: Add one or more items to a pledge event. Executive or admin only.
+      operationId: addEventItems
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: "Crates of Coke"
+                      quantity_needed:
+                        type: number
+                        example: 10
+                      unit:
+                        type: string
+                        example: "crates"
+                    required: [name, quantity_needed, unit]
+              required: [items]
+      responses:
+        '201':
+          description: Items added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventItem'
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Not a pledge event, event completed, or missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /events/{id}/pledges:
+    post:
+      summary: Create a pledge
+      description: |
+        Pledge against a specific item on a pledge event.
+        A member can only have one pledge per item — subsequent attempts return 409.
+        Quantity cannot exceed the remaining quantity for the item.
+      operationId: createPledge
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event_item_id:
+                  type: string
+                  format: uuid
+                quantity:
+                  type: number
+                  example: 5
+              required: [event_item_id, quantity]
+      responses:
+        '201':
+          description: Pledge created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pledge'
+        '404':
+          description: Event or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Pledge already exists for this member and item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Event completed, not a pledge event, item fully pledged, or quantity exceeds remaining
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /events/{id}/pledges/{pledgeId}:
+    patch:
+      summary: Edit a pledge
+      description: |
+        Update the quantity on an existing pledge. Only the pledge owner can edit.
+        New quantity cannot exceed the remaining quantity (excluding the member's existing pledge).
+      operationId: updatePledge
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: pledgeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: number
+                  example: 8
+              required: [quantity]
+      responses:
+        '200':
+          description: Pledge updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pledge'
+        '403':
+          description: Pledge does not belong to calling member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Event or pledge not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Event completed, pledge cancelled, or quantity exceeds remaining
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Cancel a pledge
+      description: |
+        Cancel an existing pledge. Only the pledge owner can cancel.
+        Cannot cancel if a contribution has already been recorded against the pledge.
+      operationId: cancelPledge
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: pledgeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pledge cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: "cancelled"
+                  updated_at:
+                    type: string
+                    format: date-time
+        '403':
+          description: Pledge does not belong to calling member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Event or pledge not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Event completed, pledge already cancelled, or pledge has been paid for
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /events/{id}/contributions:
+    post:
+      summary: Record a cash contribution
+      description: |
+        Record a cash contribution against an event. Executive or admin only.
+        - member_id: null means anonymous contribution
+        - pledge_id: null means a pure cash contribution not linked to any pledge
+      operationId: recordContribution
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                member_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Omit or set null for anonymous contributions
+                pledge_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Omit or set null for pure cash contributions
+                amount:
+                  type: number
+                  example: 50.00
+                received_at:
+                  type: string
+                  format: date-time
+                  example: "2026-08-12T14:00:00Z"
+                note:
+                  type: string
+                  nullable: true
+              required: [amount, received_at]
+      responses:
+        '201':
+          description: Contribution recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contribution'
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Event, pledge or member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Event completed or pledge cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /members/me/pledges:
+    get:
+      summary: Get my pledges
+      description: Returns all active pledges for the authenticated member across all upcoming events. Includes contribution details where cash has been recorded.
+      operationId: getMyPledges
+      security:
+        - CognitoJWT: []
+      responses:
+        '200':
+          description: List of pledges
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pledges:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MyPledge'
+        '403':
+          description: Authenticated member not found
           content:
             application/json:
               schema:
