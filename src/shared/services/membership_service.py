@@ -14,7 +14,7 @@ def get_current_fee(conn, membership_type: str):
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT annual_fee FROM membership_fees
+            SELECT annual_fee, due_days FROM membership_fees
             WHERE membership_type = %s AND effective_from <= %s
             ORDER BY effective_from DESC
             LIMIT 1
@@ -24,7 +24,7 @@ def get_current_fee(conn, membership_type: str):
         row = cur.fetchone()
         if not row:
             raise RuntimeError(f"No fee configured for membership type: {membership_type}")
-        return row["annual_fee"]
+        return row
 
 
 @tracer.capture_method(name="InsertMembership")
@@ -68,7 +68,7 @@ def generate_invoice_number(conn) -> str:
 
 
 @tracer.capture_method(name="InsertInvoice")
-def insert_invoice(conn, membership_period_id: str, invoice_number: str, amount_due):
+def insert_invoice(conn, membership_period_id: str, invoice_number: str, amount_due, due_date):
     today = date.today()
     with conn.cursor() as cur:
         cur.execute(
@@ -78,5 +78,5 @@ def insert_invoice(conn, membership_period_id: str, invoice_number: str, amount_
                 amount_due, status
             ) VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (membership_period_id, invoice_number, today, today, amount_due, InvoiceStatus.UNPAID.value),
+            (membership_period_id, invoice_number, today, due_date, amount_due, InvoiceStatus.UNPAID.value),
         )

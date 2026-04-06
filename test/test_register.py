@@ -40,7 +40,7 @@ def _setup_mock_db(mock_db, invite, member_id="member-uuid-1234", membership_id=
     cursor.fetchone.side_effect = [
         invite,                          # get_invite_by_activation_code
         {"id": member_id},               # insert_member RETURNING id
-        {"annual_fee": 60.00},           # get_current_fee
+        {"annual_fee": 60.00, "due_days": 30},  # get_current_fee
         {"id": membership_id},           # insert_membership RETURNING id
         {"id": period_id},               # insert_membership_period RETURNING id
         {"invoice_number": "NIB-0001"},  # generate_invoice_number

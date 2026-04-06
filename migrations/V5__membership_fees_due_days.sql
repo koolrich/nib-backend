@@ -1,0 +1,1 @@
+ALTER TABLE membership_fees ADD COLUMN due_days INT NOT NULL DEFAULT 30;
