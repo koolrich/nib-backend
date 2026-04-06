@@ -42,7 +42,7 @@ def _setup_mock_db(mock_db, invite, member_id="member-uuid-1234", membership_id=
         {"id": member_id},               # insert_member RETURNING id
         {"annual_fee": 60.00, "due_days": 30},  # get_current_fee
         {"id": membership_id},           # insert_membership RETURNING id
-        {"id": period_id},               # insert_membership_period RETURNING id
+        {"id": period_id, "membership_id": membership_id, "start_date": "2026-01-01", "end_date": "2026-12-31", "status": "active", "created_at": "2026-01-01T00:00:00"},  # insert_membership_period
         {"invoice_number": "NIB-0001"},  # generate_invoice_number
     ]
     mock_db.cursor.return_value = cursor

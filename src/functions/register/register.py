@@ -65,7 +65,7 @@ def register(event: Dict[str, Any]):
             due_date = date.today() + timedelta(days=fee["due_days"])
             membership_id = insert_membership(conn, request.membership_type, member_id)
             update_member_membership_id(conn, member_id, membership_id)
-            period_id = insert_membership_period(conn, membership_id)
+            period_id = str(insert_membership_period(conn, membership_id)["id"])
             invoice_number = generate_invoice_number(conn)
             insert_invoice(conn, period_id, invoice_number, fee["annual_fee"], due_date)
         else:

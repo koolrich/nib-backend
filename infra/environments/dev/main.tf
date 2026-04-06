@@ -316,6 +316,42 @@ module "lambda_function_events" {
   depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
 }
 
+module "lambda_function_memberships" {
+  source                       = "../../modules/lambda"
+  lambda_artifact_bucket       = var.lambda_artifact_bucket
+  lambda_s3_key                = "functions/memberships.zip"
+  lambda_function_name         = "memberships"
+  source_code_hash             = filebase64sha256("memberships.zip")
+  lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
+  lambda_handler               = "src.functions.memberships.memberships.handler"
+  lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
+  lambda_environment_variables = { ENV = "dev" }
+  vpc_subnet_ids               = module.vpc.lambda_subnet_ids
+  vpc_id                       = module.vpc.vpc_id
+  lambda_sg_id                 = module.vpc.lambda_sg_id
+  project                      = var.project
+  environment                  = var.environment
+  depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
+}
+
+module "lambda_function_payments" {
+  source                       = "../../modules/lambda"
+  lambda_artifact_bucket       = var.lambda_artifact_bucket
+  lambda_s3_key                = "functions/payments.zip"
+  lambda_function_name         = "payments"
+  source_code_hash             = filebase64sha256("payments.zip")
+  lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
+  lambda_handler               = "src.functions.payments.payments.handler"
+  lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
+  lambda_environment_variables = { ENV = "dev" }
+  vpc_subnet_ids               = module.vpc.lambda_subnet_ids
+  vpc_id                       = module.vpc.vpc_id
+  lambda_sg_id                 = module.vpc.lambda_sg_id
+  project                      = var.project
+  environment                  = var.environment
+  depends_on                   = [aws_iam_role_policy_attachment.lambda_attach, aws_iam_role_policy_attachment.lambda_vpc_access]
+}
+
 module "lambda_function_members" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
@@ -407,6 +443,31 @@ module "api_gateway" {
     "POST /events/{id}/contributions" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "POST /members/{id}/membership-periods" = {
+      lambda_invoke_arn = module.lambda_function_memberships.invoke_arn
+      lambda_arn        = module.lambda_function_memberships.function_arn
+      requires_auth     = true
+    }
+    "PATCH /membership-periods/{id}" = {
+      lambda_invoke_arn = module.lambda_function_memberships.invoke_arn
+      lambda_arn        = module.lambda_function_memberships.function_arn
+      requires_auth     = true
+    }
+    "POST /invoices/{id}/payments" = {
+      lambda_invoke_arn = module.lambda_function_payments.invoke_arn
+      lambda_arn        = module.lambda_function_payments.function_arn
+      requires_auth     = true
+    }
+    "DELETE /payments/{id}" = {
+      lambda_invoke_arn = module.lambda_function_payments.invoke_arn
+      lambda_arn        = module.lambda_function_payments.function_arn
+      requires_auth     = true
+    }
+    "GET /members/{id}/statement" = {
+      lambda_invoke_arn = module.lambda_function_payments.invoke_arn
+      lambda_arn        = module.lambda_function_payments.function_arn
       requires_auth     = true
     }
     "GET /members/me/pledges" = {

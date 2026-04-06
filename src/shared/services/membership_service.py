@@ -42,21 +42,57 @@ def insert_membership(conn, membership_type: str, primary_member_id: str) -> str
         return str(row["id"])
 
 
+@tracer.capture_method(name="GetMembershipPeriod")
+def get_membership_period(conn, period_id: str) -> dict | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, membership_id, start_date, end_date, status, created_at
+            FROM membership_periods WHERE id = %s
+            """,
+            (period_id,),
+        )
+        return cur.fetchone()
+
+
+@tracer.capture_method(name="UpdateMembershipPeriod")
+def update_membership_period(conn, period_id: str, fields: dict) -> dict | None:
+    allowed = {"start_date", "end_date", "status"}
+    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if not updates:
+        return get_membership_period(conn, period_id)
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
+    values = list(updates.values()) + [period_id]
+
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE membership_periods
+            SET {set_clause}, updated_at = NOW()
+            WHERE id = %s
+            RETURNING id, membership_id, start_date, end_date, status, created_at
+            """,
+            values,
+        )
+        return cur.fetchone()
+
+
 @tracer.capture_method(name="InsertMembershipPeriod")
-def insert_membership_period(conn, membership_id: str) -> str:
+def insert_membership_period(conn, membership_id: str, start_date=None, end_date=None) -> dict:
     today = date.today()
-    period_end = today + relativedelta(years=1)
+    start = start_date or today
+    end = end_date or (today + relativedelta(years=1))
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO membership_periods (membership_id, start_date, end_date, status)
             VALUES (%s, %s, %s, %s)
-            RETURNING id
+            RETURNING id, membership_id, start_date, end_date, status, created_at
             """,
-            (membership_id, today, period_end, MembershipPeriodStatus.ACTIVE.value),
+            (membership_id, start, end, MembershipPeriodStatus.ACTIVE.value),
         )
-        row = cur.fetchone()
-        return str(row["id"])
+        return cur.fetchone()
 
 
 @tracer.capture_method(name="GenerateInvoiceNumber")
