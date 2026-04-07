@@ -33,13 +33,13 @@ def handler(event: Dict[str, Any], context: LambdaContext):
             if not caller:
                 return _response(403, {"error": "Member not found"})
 
-            if route_key == "POST /invoices/{id}/payments":
+            if route_key == "POST /v1/invoices/{id}/payments":
                 return record_payment(uow, caller, path_params["id"], body)
 
-            if route_key == "DELETE /payments/{id}":
+            if route_key == "DELETE /v1/payments/{id}":
                 return delete_payment(uow, caller, path_params["id"])
 
-            if route_key == "GET /members/{id}/statement":
+            if route_key == "GET /v1/members/{id}/statement":
                 return get_statement(uow, caller, path_params["id"])
 
             return _response(404, {"error": "Route not found"})

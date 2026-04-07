@@ -86,7 +86,7 @@ def _event(route_key, body=None, path_params=None):
 @patch("functions.payments.payments.PaymentUoW")
 def test_record_payment_201_partial(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = payments.handler(_event("POST /invoices/{id}/payments", VALID_PAYMENT_BODY,
+    result = payments.handler(_event("POST /v1/invoices/{id}/payments", VALID_PAYMENT_BODY,
                                      {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 201
     body = json.loads(result["body"])
@@ -99,7 +99,7 @@ def test_record_payment_201_paid(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(
         payment_row={**PAYMENT_ROW, "amount": Decimal("60.00")}
     )
-    result = payments.handler(_event("POST /invoices/{id}/payments",
+    result = payments.handler(_event("POST /v1/invoices/{id}/payments",
                                      {**VALID_PAYMENT_BODY, "amount": 60.00},
                                      {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 201
@@ -111,7 +111,7 @@ def test_record_payment_201_paid(mock_uow_cls):
 @patch("functions.payments.payments.PaymentUoW")
 def test_record_payment_403_not_exec(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
-    result = payments.handler(_event("POST /invoices/{id}/payments", VALID_PAYMENT_BODY,
+    result = payments.handler(_event("POST /v1/invoices/{id}/payments", VALID_PAYMENT_BODY,
                                      {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 403
 
@@ -119,7 +119,7 @@ def test_record_payment_403_not_exec(mock_uow_cls):
 @patch("functions.payments.payments.PaymentUoW")
 def test_record_payment_404_invoice_not_found(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(invoice=None)
-    result = payments.handler(_event("POST /invoices/{id}/payments", VALID_PAYMENT_BODY,
+    result = payments.handler(_event("POST /v1/invoices/{id}/payments", VALID_PAYMENT_BODY,
                                      {"id": "nonexistent"}), generate_context())
     assert result["statusCode"] == 404
 
@@ -127,7 +127,7 @@ def test_record_payment_404_invoice_not_found(mock_uow_cls):
 @patch("functions.payments.payments.PaymentUoW")
 def test_record_payment_422_invoice_paid(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(invoice=PAID_INVOICE)
-    result = payments.handler(_event("POST /invoices/{id}/payments", VALID_PAYMENT_BODY,
+    result = payments.handler(_event("POST /v1/invoices/{id}/payments", VALID_PAYMENT_BODY,
                                      {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
 
@@ -135,7 +135,7 @@ def test_record_payment_422_invoice_paid(mock_uow_cls):
 @patch("functions.payments.payments.PaymentUoW")
 def test_record_payment_422_exceeds_balance(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = payments.handler(_event("POST /invoices/{id}/payments",
+    result = payments.handler(_event("POST /v1/invoices/{id}/payments",
                                      {**VALID_PAYMENT_BODY, "amount": 999.00},
                                      {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
@@ -144,7 +144,7 @@ def test_record_payment_422_exceeds_balance(mock_uow_cls):
 @patch("functions.payments.payments.PaymentUoW")
 def test_record_payment_422_invalid_method(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = payments.handler(_event("POST /invoices/{id}/payments",
+    result = payments.handler(_event("POST /v1/invoices/{id}/payments",
                                      {**VALID_PAYMENT_BODY, "method": "crypto"},
                                      {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
@@ -153,7 +153,7 @@ def test_record_payment_422_invalid_method(mock_uow_cls):
 @patch("functions.payments.payments.PaymentUoW")
 def test_record_payment_422_missing_fields(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = payments.handler(_event("POST /invoices/{id}/payments", {"amount": 25.00},
+    result = payments.handler(_event("POST /v1/invoices/{id}/payments", {"amount": 25.00},
                                      {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
 
@@ -164,7 +164,7 @@ def test_record_payment_422_missing_fields(mock_uow_cls):
 def test_delete_payment_200_resets_to_unpaid(mock_uow_cls):
     uow = _make_uow(total_paid=Decimal("0.00"))
     mock_uow_cls.return_value = uow
-    result = payments.handler(_event("DELETE /payments/{id}", None,
+    result = payments.handler(_event("DELETE /v1/payments/{id}", None,
                                      {"id": "payment-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
@@ -174,7 +174,7 @@ def test_delete_payment_200_resets_to_unpaid(mock_uow_cls):
 @patch("functions.payments.payments.PaymentUoW")
 def test_delete_payment_403_not_exec(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
-    result = payments.handler(_event("DELETE /payments/{id}", None,
+    result = payments.handler(_event("DELETE /v1/payments/{id}", None,
                                      {"id": "payment-uuid-1234"}), generate_context())
     assert result["statusCode"] == 403
 
@@ -184,7 +184,7 @@ def test_delete_payment_404_not_found(mock_uow_cls):
     uow = _make_uow()
     uow.payments.get_by_id.return_value = None
     mock_uow_cls.return_value = uow
-    result = payments.handler(_event("DELETE /payments/{id}", None,
+    result = payments.handler(_event("DELETE /v1/payments/{id}", None,
                                      {"id": "nonexistent"}), generate_context())
     assert result["statusCode"] == 404
 
@@ -194,7 +194,7 @@ def test_delete_payment_404_not_found(mock_uow_cls):
 @patch("functions.payments.payments.PaymentUoW")
 def test_get_statement_200_no_payments(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = payments.handler(_event("GET /members/{id}/statement", None,
+    result = payments.handler(_event("GET /v1/members/{id}/statement", None,
                                      {"id": "member-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
@@ -206,7 +206,7 @@ def test_get_statement_200_no_payments(mock_uow_cls):
 def test_get_statement_200_own_statement(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER,
                                            member_by_id={"id": "member-uuid-1234", "membership_id": "m-uuid"})
-    result = payments.handler(_event("GET /members/{id}/statement", None,
+    result = payments.handler(_event("GET /v1/members/{id}/statement", None,
                                      {"id": "member-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
 
@@ -216,7 +216,7 @@ def test_get_statement_403_other_member(mock_uow_cls):
     uow = _make_uow(caller=REGULAR_MEMBER)
     uow.members.get_by_id.return_value = {"id": "other-member-uuid", "membership_id": "m-uuid"}
     mock_uow_cls.return_value = uow
-    result = payments.handler(_event("GET /members/{id}/statement", None,
+    result = payments.handler(_event("GET /v1/members/{id}/statement", None,
                                      {"id": "other-member-uuid"}), generate_context())
     assert result["statusCode"] == 403
 
@@ -226,7 +226,7 @@ def test_get_statement_404_member_not_found(mock_uow_cls):
     uow = _make_uow()
     uow.members.get_by_id.return_value = None
     mock_uow_cls.return_value = uow
-    result = payments.handler(_event("GET /members/{id}/statement", None,
+    result = payments.handler(_event("GET /v1/members/{id}/statement", None,
                                      {"id": "nonexistent"}), generate_context())
     assert result["statusCode"] == 404
 
@@ -236,7 +236,7 @@ def test_get_statement_200_no_active_period(mock_uow_cls):
     uow = _make_uow()
     uow.periods.get_active_for_membership.return_value = None
     mock_uow_cls.return_value = uow
-    result = payments.handler(_event("GET /members/{id}/statement", None,
+    result = payments.handler(_event("GET /v1/members/{id}/statement", None,
                                      {"id": "member-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
@@ -249,7 +249,7 @@ def test_get_statement_200_no_invoice(mock_uow_cls):
     uow = _make_uow(invoice_by_period=None)
     uow.invoices.get_by_period_id.return_value = None
     mock_uow_cls.return_value = uow
-    result = payments.handler(_event("GET /members/{id}/statement", None,
+    result = payments.handler(_event("GET /v1/members/{id}/statement", None,
                                      {"id": "member-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])

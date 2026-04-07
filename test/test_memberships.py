@@ -64,7 +64,7 @@ def _event(route_key, body=None, path_params=None):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_create_period_201(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = memberships.handler(_event("POST /members/{id}/membership-periods",
+    result = memberships.handler(_event("POST /v1/members/{id}/membership-periods",
                                         VALID_PERIOD_BODY, {"id": "legacy-uuid-1234"}), generate_context())
     assert result["statusCode"] == 201
 
@@ -72,7 +72,7 @@ def test_create_period_201(mock_uow_cls):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_create_period_403_not_exec(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
-    result = memberships.handler(_event("POST /members/{id}/membership-periods",
+    result = memberships.handler(_event("POST /v1/members/{id}/membership-periods",
                                         VALID_PERIOD_BODY, {"id": "legacy-uuid-1234"}), generate_context())
     assert result["statusCode"] == 403
 
@@ -80,7 +80,7 @@ def test_create_period_403_not_exec(mock_uow_cls):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_create_period_404_member_not_found(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(target=None)
-    result = memberships.handler(_event("POST /members/{id}/membership-periods",
+    result = memberships.handler(_event("POST /v1/members/{id}/membership-periods",
                                         VALID_PERIOD_BODY, {"id": "nonexistent"}), generate_context())
     assert result["statusCode"] == 404
 
@@ -88,7 +88,7 @@ def test_create_period_404_member_not_found(mock_uow_cls):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_create_period_422_not_legacy(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(target=NON_LEGACY_MEMBER)
-    result = memberships.handler(_event("POST /members/{id}/membership-periods",
+    result = memberships.handler(_event("POST /v1/members/{id}/membership-periods",
                                         VALID_PERIOD_BODY, {"id": "non-legacy-uuid"}), generate_context())
     assert result["statusCode"] == 422
 
@@ -96,7 +96,7 @@ def test_create_period_422_not_legacy(mock_uow_cls):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_create_period_422_no_membership(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(target={**LEGACY_MEMBER, "membership_id": None})
-    result = memberships.handler(_event("POST /members/{id}/membership-periods",
+    result = memberships.handler(_event("POST /v1/members/{id}/membership-periods",
                                         VALID_PERIOD_BODY, {"id": "legacy-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
 
@@ -104,7 +104,7 @@ def test_create_period_422_no_membership(mock_uow_cls):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_create_period_422_missing_dates(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = memberships.handler(_event("POST /members/{id}/membership-periods",
+    result = memberships.handler(_event("POST /v1/members/{id}/membership-periods",
                                         {"period_start": "2024-01-01"}, {"id": "legacy-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
 
@@ -114,7 +114,7 @@ def test_create_period_422_missing_dates(mock_uow_cls):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_patch_period_200(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = memberships.handler(_event("PATCH /membership-periods/{id}",
+    result = memberships.handler(_event("PATCH /v1/membership-periods/{id}",
                                         {"status": "expired"}, {"id": "period-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
 
@@ -122,7 +122,7 @@ def test_patch_period_200(mock_uow_cls):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_patch_period_403_not_exec(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
-    result = memberships.handler(_event("PATCH /membership-periods/{id}",
+    result = memberships.handler(_event("PATCH /v1/membership-periods/{id}",
                                         {"status": "expired"}, {"id": "period-uuid-1234"}), generate_context())
     assert result["statusCode"] == 403
 
@@ -132,7 +132,7 @@ def test_patch_period_404(mock_uow_cls):
     uow = _make_uow()
     uow.periods.get_by_id.return_value = None
     mock_uow_cls.return_value = uow
-    result = memberships.handler(_event("PATCH /membership-periods/{id}",
+    result = memberships.handler(_event("PATCH /v1/membership-periods/{id}",
                                         {"status": "expired"}, {"id": "nonexistent"}), generate_context())
     assert result["statusCode"] == 404
 
@@ -140,6 +140,6 @@ def test_patch_period_404(mock_uow_cls):
 @patch("functions.memberships.memberships.MembershipUoW")
 def test_patch_period_422_invalid_status(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = memberships.handler(_event("PATCH /membership-periods/{id}",
+    result = memberships.handler(_event("PATCH /v1/membership-periods/{id}",
                                         {"status": "invalid"}, {"id": "period-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422

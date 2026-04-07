@@ -443,102 +443,102 @@ module "api_gateway" {
   cognito_app_client_id = module.cognito.app_client_id
 
   routes = {
-    "POST /invites" = {
+    "POST /v1/invites" = {
       lambda_invoke_arn = module.lambda_function_send_invite.invoke_arn
       lambda_arn        = module.lambda_function_send_invite.function_arn
       requires_auth     = true
     }
-    "POST /invites/validate" = {
+    "POST /v1/invites/validate" = {
       lambda_invoke_arn = module.lambda_function_validate_invite.invoke_arn
       lambda_arn        = module.lambda_function_validate_invite.function_arn
       requires_auth     = false
     }
-    "POST /auth/register" = {
+    "POST /v1/auth/register" = {
       lambda_invoke_arn = module.lambda_function_register.invoke_arn
       lambda_arn        = module.lambda_function_register.function_arn
       requires_auth     = false
     }
-    "POST /auth/login" = {
+    "POST /v1/auth/login" = {
       lambda_invoke_arn = module.lambda_function_login.invoke_arn
       lambda_arn        = module.lambda_function_login.function_arn
       requires_auth     = false
     }
-    "POST /events" = {
+    "POST /v1/events" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "GET /events" = {
+    "GET /v1/events" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "GET /events/{id}" = {
+    "GET /v1/events/{id}" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "PATCH /events/{id}" = {
+    "PATCH /v1/events/{id}" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "POST /events/{id}/items" = {
+    "POST /v1/events/{id}/items" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "POST /events/{id}/pledges" = {
+    "POST /v1/events/{id}/pledges" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "PATCH /events/{id}/pledges/{pledgeId}" = {
+    "PATCH /v1/events/{id}/pledges/{pledgeId}" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "DELETE /events/{id}/pledges/{pledgeId}" = {
+    "DELETE /v1/events/{id}/pledges/{pledgeId}" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "POST /events/{id}/contributions" = {
+    "POST /v1/events/{id}/contributions" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "POST /members/{id}/membership-periods" = {
+    "POST /v1/members/{id}/membership-periods" = {
       lambda_invoke_arn = module.lambda_function_memberships.invoke_arn
       lambda_arn        = module.lambda_function_memberships.function_arn
       requires_auth     = true
     }
-    "PATCH /membership-periods/{id}" = {
+    "PATCH /v1/membership-periods/{id}" = {
       lambda_invoke_arn = module.lambda_function_memberships.invoke_arn
       lambda_arn        = module.lambda_function_memberships.function_arn
       requires_auth     = true
     }
-    "POST /invoices/{id}/payments" = {
+    "POST /v1/invoices/{id}/payments" = {
       lambda_invoke_arn = module.lambda_function_payments.invoke_arn
       lambda_arn        = module.lambda_function_payments.function_arn
       requires_auth     = true
     }
-    "DELETE /payments/{id}" = {
+    "DELETE /v1/payments/{id}" = {
       lambda_invoke_arn = module.lambda_function_payments.invoke_arn
       lambda_arn        = module.lambda_function_payments.function_arn
       requires_auth     = true
     }
-    "GET /members/{id}/statement" = {
+    "GET /v1/members/{id}/statement" = {
       lambda_invoke_arn = module.lambda_function_payments.invoke_arn
       lambda_arn        = module.lambda_function_payments.function_arn
       requires_auth     = true
     }
-    "GET /members/me/pledges" = {
+    "GET /v1/members/me/pledges" = {
       lambda_invoke_arn = module.lambda_function_members.invoke_arn
       lambda_arn        = module.lambda_function_members.function_arn
       requires_auth     = true
     }
-    "PATCH /members/{id}" = {
+    "PATCH /v1/members/{id}" = {
       lambda_invoke_arn = module.lambda_function_members.invoke_arn
       lambda_arn        = module.lambda_function_members.function_arn
       requires_auth     = true

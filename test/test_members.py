@@ -52,7 +52,7 @@ def _event(route_key, body=None, path_params=None, cognito_sub="member-sub"):
 @patch("functions.members.members.MemberUoW")
 def test_get_my_pledges_returns_200(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(pledges=[MY_PLEDGE])
-    result = members.handler(_event("GET /members/me/pledges"), generate_context())
+    result = members.handler(_event("GET /v1/members/me/pledges"), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
     assert len(body["pledges"]) == 1
@@ -62,7 +62,7 @@ def test_get_my_pledges_returns_200(mock_uow_cls):
 @patch("functions.members.members.MemberUoW")
 def test_get_my_pledges_includes_contribution(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(pledges=[MY_PLEDGE_WITH_CONTRIBUTION])
-    result = members.handler(_event("GET /members/me/pledges"), generate_context())
+    result = members.handler(_event("GET /v1/members/me/pledges"), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
     assert body["pledges"][0]["contribution"]["amount"] == 50.00
@@ -71,7 +71,7 @@ def test_get_my_pledges_includes_contribution(mock_uow_cls):
 @patch("functions.members.members.MemberUoW")
 def test_get_my_pledges_empty(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(pledges=[])
-    result = members.handler(_event("GET /members/me/pledges"), generate_context())
+    result = members.handler(_event("GET /v1/members/me/pledges"), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
     assert body["pledges"] == []
@@ -80,40 +80,40 @@ def test_get_my_pledges_empty(mock_uow_cls):
 @patch("functions.members.members.MemberUoW")
 def test_member_not_found_returns_403(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=None)
-    result = members.handler(_event("GET /members/me/pledges"), generate_context())
+    result = members.handler(_event("GET /v1/members/me/pledges"), generate_context())
     assert result["statusCode"] == 403
 
 
 @patch("functions.members.members.MemberUoW")
 def test_patch_own_profile_returns_200(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = members.handler(_event("PATCH /members/{id}", {"first_name": "Alicia"}, {"id": "member-uuid"}), generate_context())
+    result = members.handler(_event("PATCH /v1/members/{id}", {"first_name": "Alicia"}, {"id": "member-uuid"}), generate_context())
     assert result["statusCode"] == 200
 
 
 @patch("functions.members.members.MemberUoW")
 def test_patch_other_member_returns_403(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = members.handler(_event("PATCH /members/{id}", {"first_name": "Bob"}, {"id": "other-uuid"}), generate_context())
+    result = members.handler(_event("PATCH /v1/members/{id}", {"first_name": "Bob"}, {"id": "other-uuid"}), generate_context())
     assert result["statusCode"] == 403
 
 
 @patch("functions.members.members.MemberUoW")
 def test_exec_can_patch_any_member(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=EXEC_MEMBER)
-    result = members.handler(_event("PATCH /members/{id}", {"first_name": "Bob"}, {"id": "member-uuid"}, cognito_sub="exec-sub"), generate_context())
+    result = members.handler(_event("PATCH /v1/members/{id}", {"first_name": "Bob"}, {"id": "member-uuid"}, cognito_sub="exec-sub"), generate_context())
     assert result["statusCode"] == 200
 
 
 @patch("functions.members.members.MemberUoW")
 def test_patch_role_by_regular_member_returns_403(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow()
-    result = members.handler(_event("PATCH /members/{id}", {"member_role": "executive"}, {"id": "member-uuid"}), generate_context())
+    result = members.handler(_event("PATCH /v1/members/{id}", {"member_role": "executive"}, {"id": "member-uuid"}), generate_context())
     assert result["statusCode"] == 403
 
 
 @patch("functions.members.members.MemberUoW")
 def test_patch_nonexistent_member_returns_404(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=EXEC_MEMBER, member_profile=None)
-    result = members.handler(_event("PATCH /members/{id}", {"first_name": "Bob"}, {"id": "bad-uuid"}, cognito_sub="exec-sub"), generate_context())
+    result = members.handler(_event("PATCH /v1/members/{id}", {"first_name": "Bob"}, {"id": "bad-uuid"}, cognito_sub="exec-sub"), generate_context())
     assert result["statusCode"] == 404

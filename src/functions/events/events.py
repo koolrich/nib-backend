@@ -36,31 +36,31 @@ def handler(event: Dict[str, Any], context: LambdaContext):
             if not member:
                 return _response(403, {"error": "Member not found"})
 
-            if route_key == "POST /events":
+            if route_key == "POST /v1/events":
                 return create_event(uow, member, body)
 
-            if route_key == "GET /events":
+            if route_key == "GET /v1/events":
                 return list_events(uow)
 
-            if route_key == "GET /events/{id}":
+            if route_key == "GET /v1/events/{id}":
                 return get_event(uow, path_params["id"])
 
-            if route_key == "PATCH /events/{id}":
+            if route_key == "PATCH /v1/events/{id}":
                 return patch_event(uow, member, path_params["id"], body)
 
-            if route_key == "POST /events/{id}/items":
+            if route_key == "POST /v1/events/{id}/items":
                 return add_items(uow, member, path_params["id"], body)
 
-            if route_key == "POST /events/{id}/pledges":
+            if route_key == "POST /v1/events/{id}/pledges":
                 return create_pledge(uow, member, path_params["id"], body)
 
-            if route_key == "PATCH /events/{id}/pledges/{pledgeId}":
+            if route_key == "PATCH /v1/events/{id}/pledges/{pledgeId}":
                 return update_pledge(uow, member, path_params["id"], path_params["pledgeId"], body)
 
-            if route_key == "DELETE /events/{id}/pledges/{pledgeId}":
+            if route_key == "DELETE /v1/events/{id}/pledges/{pledgeId}":
                 return cancel_pledge(uow, member, path_params["id"], path_params["pledgeId"])
 
-            if route_key == "POST /events/{id}/contributions":
+            if route_key == "POST /v1/events/{id}/contributions":
                 return record_contribution(uow, member, path_params["id"], body)
 
             return _response(404, {"error": "Route not found"})

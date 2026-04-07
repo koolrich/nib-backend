@@ -33,10 +33,10 @@ def handler(event: Dict[str, Any], context: LambdaContext):
             if not caller:
                 return _response(403, {"error": "Member not found"})
 
-            if route_key == "GET /members/me/pledges":
+            if route_key == "GET /v1/members/me/pledges":
                 return get_my_pledges(uow, str(caller["id"]))
 
-            if route_key == "PATCH /members/{id}":
+            if route_key == "PATCH /v1/members/{id}":
                 return patch_member(uow, caller, path_params["id"], body)
 
             return _response(404, {"error": "Route not found"})
