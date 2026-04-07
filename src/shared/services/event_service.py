@@ -1,6 +1,12 @@
 import json
 
 from aws_lambda_powertools import Logger
+from shared.serializers.event_serializers import (
+    serialize_event, serialize_event_create, serialize_event_update,
+    serialize_item, serialize_item_insert,
+    serialize_pledge, serialize_pledge_write, serialize_pledge_update, serialize_pledge_cancel,
+    serialize_contribution, serialize_contribution_insert,
+)
 
 logger = Logger()
 
@@ -34,12 +40,12 @@ def create_event(uow, member: dict, body: dict) -> dict:
         return _response(422, {"error": f"type must be one of: {', '.join(VALID_EVENT_TYPES)}"})
 
     row = uow.events.insert(title, date, type_, description, str(member["id"]))
-    return _response(201, dict(row))
+    return _response(201, serialize_event_create(row))
 
 
 def list_events(uow) -> dict:
     rows = uow.events.get_all()
-    return _response(200, {"events": [dict(r) for r in rows]})
+    return _response(200, {"events": [serialize_event(r) for r in rows]})
 
 
 def get_event(uow, event_id: str) -> dict:
@@ -47,11 +53,11 @@ def get_event(uow, event_id: str) -> dict:
     if not event:
         return _response(404, {"error": "Event not found"})
 
-    result = dict(event)
+    result = serialize_event(event)
     if event["type"] == "pledge":
-        result["items"] = uow.events.get_items(event_id)
-    result["pledges"] = [dict(p) for p in uow.events.get_pledges(event_id)]
-    result["contributions"] = [dict(c) for c in uow.events.get_contributions(event_id)]
+        result["items"] = [serialize_item(i) for i in uow.events.get_items(event_id)]
+    result["pledges"] = [serialize_pledge(p) for p in uow.events.get_pledges(event_id)]
+    result["contributions"] = [serialize_contribution(c) for c in uow.events.get_contributions(event_id)]
     return _response(200, result)
 
 
@@ -77,7 +83,7 @@ def patch_event(uow, member: dict, event_id: str, body: dict) -> dict:
         return _response(422, {"error": f"type must be one of: {', '.join(VALID_EVENT_TYPES)}"})
 
     row = uow.events.update(event_id, body)
-    return _response(200, dict(row))
+    return _response(200, serialize_event_update(row))
 
 
 def add_items(uow, member: dict, event_id: str, body: dict) -> dict:
@@ -101,7 +107,7 @@ def add_items(uow, member: dict, event_id: str, body: dict) -> dict:
             return _response(422, {"error": "Each item must have name, quantity_needed and unit"})
 
     rows = uow.events.insert_items(event_id, items)
-    return _response(201, {"items": [dict(r) for r in rows]})
+    return _response(201, {"items": [serialize_item_insert(r) for r in rows]})
 
 
 def create_pledge(uow, member: dict, event_id: str, body: dict) -> dict:
@@ -133,7 +139,7 @@ def create_pledge(uow, member: dict, event_id: str, body: dict) -> dict:
         return _response(422, {"error": f"Only {remaining} units remaining"})
 
     row = uow.pledges.insert(event_id, member_id, event_item_id, quantity)
-    return _response(201, dict(row))
+    return _response(201, serialize_pledge_write(row))
 
 
 def update_pledge(uow, member: dict, event_id: str, pledge_id: str, body: dict) -> dict:
@@ -160,7 +166,7 @@ def update_pledge(uow, member: dict, event_id: str, pledge_id: str, body: dict) 
         return _response(422, {"error": f"Only {remaining} units remaining"})
 
     row = uow.pledges.update_quantity(pledge_id, quantity)
-    return _response(200, dict(row))
+    return _response(200, serialize_pledge_update(row))
 
 
 def cancel_pledge(uow, member: dict, event_id: str, pledge_id: str) -> dict:
@@ -182,7 +188,7 @@ def cancel_pledge(uow, member: dict, event_id: str, pledge_id: str) -> dict:
         return _response(422, {"error": "Cannot cancel a pledge that has already been paid for"})
 
     row = uow.pledges.cancel(pledge_id)
-    return _response(200, dict(row))
+    return _response(200, serialize_pledge_cancel(row))
 
 
 def record_contribution(uow, member: dict, event_id: str, body: dict) -> dict:
@@ -217,4 +223,4 @@ def record_contribution(uow, member: dict, event_id: str, body: dict) -> dict:
 
     row = uow.events.insert_contribution(event_id, member_id, pledge_id, amount,
                                          str(member["id"]), received_at, note)
-    return _response(201, dict(row))
+    return _response(201, serialize_contribution_insert(row))

@@ -16,13 +16,14 @@ UPCOMING_EVENT = {
 EVENT_ITEM = {
     "id": "item-uuid", "event_id": "event-uuid", "name": "Crates of Coke",
     "quantity_needed": 10, "unit": "crates", "quantity_pledged": 3,
-    "quantity_remaining": 7, "is_available": True,
+    "quantity_remaining": 7, "is_available": True, "created_at": "2026-04-05T10:00:00",
 }
 
 PLEDGE = {
     "id": "pledge-uuid", "event_id": "event-uuid", "member_id": "member-uuid",
     "event_item_id": "item-uuid", "item_name": "Crates of Coke",
-    "quantity": 3, "status": "pledged", "updated_at": "2026-04-05T10:00:00",
+    "quantity": 3, "status": "pledged", "created_at": "2026-04-05T10:00:00",
+    "updated_at": "2026-04-05T10:00:00",
 }
 
 
@@ -42,7 +43,11 @@ def _make_uow(caller=EXEC_MEMBER, event=UPCOMING_EVENT, items=None, pledges=None
     uow.events.insert.return_value = event
     uow.events.update.return_value = event
     uow.events.insert_items.return_value = [EVENT_ITEM]
-    uow.events.insert_contribution.return_value = {"id": "contrib-uuid", "amount": 50.0}
+    uow.events.insert_contribution.return_value = {
+        "id": "contrib-uuid", "event_id": "event-uuid", "member_id": "member-uuid",
+        "pledge_id": None, "amount": 50.0, "received_at": "2026-04-05T10:00:00",
+        "note": None, "created_at": "2026-04-05T10:00:00",
+    }
     uow.events.has_items_or_pledges.return_value = has_items_or_pledges
     uow.pledges.get_item_by_id.return_value = EVENT_ITEM
     uow.pledges.get_existing.return_value = existing_pledge

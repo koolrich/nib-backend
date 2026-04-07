@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from aws_lambda_powertools import Logger
 from shared.reference_data.invoice_status import InvoiceStatus
+from shared.serializers.membership_serializers import serialize_period, serialize_invoice
+from shared.serializers.payment_serializers import serialize_payment, serialize_statement_payment
 
 logger = Logger()
 
@@ -59,7 +61,7 @@ def record_payment(uow, caller: dict, invoice_id: str, body: dict) -> dict:
     uow.invoices.update_status(invoice_id, new_status)
 
     return _response(201, {
-        **dict(payment),
+        **serialize_payment(payment),
         "invoice": {
             "status": new_status,
             "amount_due": float(invoice["amount_due"]),
@@ -129,11 +131,11 @@ def get_statement(uow, caller: dict, target_member_id: str) -> dict:
     return _response(200, {
         "member_id": target_member_id,
         "membership_type": membership_type,
-        "period": dict(period),
+        "period": serialize_period(period),
         "invoice": {
-            **dict(invoice),
+            **serialize_invoice(invoice),
             "total_paid": float(total_paid),
             "outstanding": float(outstanding),
         },
-        "payments": [dict(p) for p in payments],
+        "payments": [serialize_statement_payment(p) for p in payments],
     })

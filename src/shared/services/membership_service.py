@@ -2,6 +2,7 @@ import json
 
 from aws_lambda_powertools import Logger
 from shared.reference_data.membership_period_status import MembershipPeriodStatus
+from shared.serializers.membership_serializers import serialize_period, serialize_invoice
 
 logger = Logger()
 
@@ -42,8 +43,8 @@ def create_membership_period(uow, caller: dict, target_member_id: str, body: dic
     invoice = uow.invoices.insert(str(period["id"]), target["membership_type"])
 
     return _response(201, {
-        "membership_period": dict(period),
-        "invoice": dict(invoice),
+        "membership_period": serialize_period(period),
+        "invoice": serialize_invoice(invoice),
     })
 
 
@@ -60,4 +61,4 @@ def patch_membership_period(uow, caller: dict, period_id: str, body: dict) -> di
         return _response(422, {"error": f"status must be one of: {', '.join(VALID_PERIOD_STATUSES)}"})
 
     updated = uow.periods.update(period_id, body)
-    return _response(200, dict(updated))
+    return _response(200, serialize_period(updated))
