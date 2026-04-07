@@ -10,6 +10,13 @@ def _response(status_code: int, body: dict) -> dict:
     return {"statusCode": status_code, "body": json.dumps(body, default=str)}
 
 
+def get_my_profile(uow, member_id: str) -> dict:
+    member = uow.members.get_by_id(member_id)
+    if not member:
+        return _response(404, {"error": "Member not found"})
+    return _response(200, serialize_member(member))
+
+
 def get_my_pledges(uow, member_id: str) -> dict:
     rows = uow.pledges.get_by_member(member_id)
     return _response(200, {"pledges": [serialize_member_pledge(r) for r in rows]})

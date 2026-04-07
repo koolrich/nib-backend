@@ -50,6 +50,16 @@ def _event(route_key, body=None, path_params=None, cognito_sub="member-sub"):
 
 
 @patch("functions.members.members.MemberUoW")
+def test_get_my_profile_returns_200(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = members.handler(_event("GET /v1/members/me"), generate_context())
+    assert result["statusCode"] == 200
+    body = json.loads(result["body"])
+    assert body["id"] == "member-uuid"
+    assert body["member_role"] == "member"
+
+
+@patch("functions.members.members.MemberUoW")
 def test_get_my_pledges_returns_200(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(pledges=[MY_PLEDGE])
     result = members.handler(_event("GET /v1/members/me/pledges"), generate_context())

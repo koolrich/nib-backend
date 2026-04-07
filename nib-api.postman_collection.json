@@ -1,0 +1,405 @@
+{
+  "info": {
+    "name": "NIB API v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://<api-id>.execute-api.eu-west-2.amazonaws.com" },
+    { "key": "token", "value": "" },
+    { "key": "activation_code", "value": "" },
+    { "key": "member_id", "value": "" },
+    { "key": "event_id", "value": "" },
+    { "key": "event_item_id", "value": "" },
+    { "key": "pledge_id", "value": "" },
+    { "key": "invoice_id", "value": "" },
+    { "key": "payment_id", "value": "" },
+    { "key": "period_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.id_token) {",
+                  "  pm.collectionVariables.set('token', body.id_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"+447123456789\",\n  \"password\": \"YourPassword1\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Invites",
+      "item": [
+        {
+          "name": "Send Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/invites",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Alice\",\n  \"last_name\": \"Smith\",\n  \"mobile\": \"+447111111111\",\n  \"relationship\": \"other\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Validate Invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('activation_code', pm.request.body.raw ? JSON.parse(pm.request.body.raw).activation_code : '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/v1/invites/validate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activation_code\": \"ABCD1234\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Registration",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/v1/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activation_code\": \"{{activation_code}}\",\n  \"first_name\": \"Alice\",\n  \"last_name\": \"Smith\",\n  \"email\": \"alice@example.com\",\n  \"mobile\": \"+447111111111\",\n  \"password\": \"SecurePass1\",\n  \"birthday_day\": 15,\n  \"birthday_month\": 6,\n  \"membership_type\": \"individual\",\n  \"address_line1\": \"1 Test Street\",\n  \"town\": \"Basingstoke\",\n  \"post_code\": \"RG21 1AA\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Events",
+      "item": [
+        {
+          "name": "Create Event",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.id) { pm.collectionVariables.set('event_id', body.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/events",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"August General Meeting\",\n  \"date\": \"2026-08-12\",\n  \"type\": \"pledge\",\n  \"description\": \"Annual general meeting\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Events",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/events"
+          }
+        },
+        {
+          "name": "Get Event",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/events/{{event_id}}"
+          }
+        },
+        {
+          "name": "Patch Event",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/events/{{event_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Add Items to Event",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.items && body.items[0]) { pm.collectionVariables.set('event_item_id', body.items[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/events/{{event_id}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"name\": \"Crates of Coke\", \"quantity_needed\": 10, \"unit\": \"crates\" },\n    { \"name\": \"Bags of Rice\", \"quantity_needed\": 5, \"unit\": \"bags\" }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Pledge",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.id) { pm.collectionVariables.set('pledge_id', body.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/events/{{event_id}}/pledges",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_item_id\": \"{{event_item_id}}\",\n  \"quantity\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Pledge",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/events/{{event_id}}/pledges/{{pledge_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "Cancel Pledge",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/events/{{event_id}}/pledges/{{pledge_id}}"
+          }
+        },
+        {
+          "name": "Record Contribution",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/events/{{event_id}}/contributions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"member_id\": \"{{member_id}}\",\n  \"pledge_id\": \"{{pledge_id}}\",\n  \"amount\": 50.00,\n  \"received_at\": \"2026-08-12T14:00:00Z\",\n  \"note\": \"Cash collected at meeting\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Members",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.id) { pm.collectionVariables.set('member_id', body.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/members/me"
+          }
+        },
+        {
+          "name": "Get My Pledges",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/members/me/pledges"
+          }
+        },
+        {
+          "name": "Patch Member",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/members/{{member_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"town\": \"Basingstoke\",\n  \"post_code\": \"RG21 2AA\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Memberships (Legacy)",
+      "item": [
+        {
+          "name": "Create Membership Period",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.membership_period) { pm.collectionVariables.set('period_id', body.membership_period.id); }",
+                  "if (body.invoice) { pm.collectionVariables.set('invoice_id', body.invoice.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/members/{{member_id}}/membership-periods",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"period_start\": \"2024-01-01\",\n  \"period_end\": \"2024-12-31\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Patch Membership Period",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/membership-periods/{{period_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"expired\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Payments",
+      "item": [
+        {
+          "name": "Record Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.id) { pm.collectionVariables.set('payment_id', body.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/invoices/{{invoice_id}}/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 25.00,\n  \"method\": \"bank_transfer\",\n  \"reference\": \"REF123\",\n  \"received_at\": \"2026-02-01T10:00:00Z\",\n  \"note\": \"Monthly instalment\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Member Statement",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/members/{{member_id}}/statement"
+          }
+        },
+        {
+          "name": "Delete Payment",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/payments/{{payment_id}}"
+          }
+        }
+      ]
+    }
+  ]
+}

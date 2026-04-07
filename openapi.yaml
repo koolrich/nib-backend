@@ -389,6 +389,61 @@ components:
           type: string
           nullable: true
 
+    MemberProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        mobile:
+          type: string
+        address_line1:
+          type: string
+          nullable: true
+        address_line2:
+          type: string
+          nullable: true
+        town:
+          type: string
+          nullable: true
+        post_code:
+          type: string
+          nullable: true
+        state_of_origin:
+          type: string
+          nullable: true
+        lga:
+          type: string
+          nullable: true
+        birthday_day:
+          type: integer
+          nullable: true
+        birthday_month:
+          type: integer
+          nullable: true
+        relationship_status:
+          type: string
+          nullable: true
+        emergency_contact_name:
+          type: string
+          nullable: true
+        emergency_contact_phone:
+          type: string
+          nullable: true
+        member_role:
+          type: string
+          enum: [member, executive, admin]
+        status:
+          type: string
+          enum: [pending, active, inactive, rejected]
+
     MembershipPeriod:
       type: object
       properties:
@@ -1161,6 +1216,27 @@ paths:
                 $ref: '#/components/schemas/Error'
         '422':
           description: Event completed or pledge cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /members/me:
+    get:
+      summary: Get my profile
+      description: Returns the authenticated member's full profile including role and membership details. Call this immediately after login to get the member's UUID and role.
+      operationId: getMyProfile
+      security:
+        - CognitoJWT: []
+      responses:
+        '200':
+          description: Member profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberProfile'
+        '403':
+          description: Authenticated member not found
           content:
             application/json:
               schema:

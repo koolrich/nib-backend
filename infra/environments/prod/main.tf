@@ -533,6 +533,11 @@ module "api_gateway" {
       lambda_arn        = module.lambda_function_payments.function_arn
       requires_auth     = true
     }
+    "GET /v1/members/me" = {
+      lambda_invoke_arn = module.lambda_function_members.invoke_arn
+      lambda_arn        = module.lambda_function_members.function_arn
+      requires_auth     = true
+    }
     "GET /v1/members/me/pledges" = {
       lambda_invoke_arn = module.lambda_function_members.invoke_arn
       lambda_arn        = module.lambda_function_members.function_arn

@@ -5,7 +5,7 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.instrumentation.tracer import tracer
-from shared.services.member_service import get_my_pledges, patch_member
+from shared.services.member_service import get_my_profile, get_my_pledges, patch_member
 from shared.uow.member_uow import MemberUoW
 
 logger = Logger()
@@ -32,6 +32,9 @@ def handler(event: Dict[str, Any], context: LambdaContext):
             caller = uow.members.get_by_cognito_sub(cognito_sub)
             if not caller:
                 return _response(403, {"error": "Member not found"})
+
+            if route_key == "GET /v1/members/me":
+                return get_my_profile(uow, str(caller["id"]))
 
             if route_key == "GET /v1/members/me/pledges":
                 return get_my_pledges(uow, str(caller["id"]))
