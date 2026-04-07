@@ -45,5 +45,19 @@ variable "db_name" {
 variable "lambda_artifact_bucket" {
     type = string
     default = "nib-lambda-artifacts"
-  
+}
+
+variable "twilio_account_sid" {
+  type      = string
+  sensitive = true
+}
+
+variable "twilio_auth_token" {
+  type      = string
+  sensitive = true
+}
+
+variable "twilio_from_number" {
+  type    = string
+  default = "NIB"
 }

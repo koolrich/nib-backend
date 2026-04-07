@@ -70,6 +70,9 @@ jobs:
             terraform_version: "1.12.2"
 
       - name: Terraform Apply (Dev)
+        env:
+          TF_VAR_twilio_account_sid: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TF_VAR_twilio_auth_token: ${{ secrets.TWILIO_AUTH_TOKEN }}
         run: |
           cd infra/environments/dev
           terraform init

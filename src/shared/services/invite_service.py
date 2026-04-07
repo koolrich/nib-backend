@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 
@@ -8,6 +9,7 @@ from shared.reference_data.invite_status import InviteStatus
 import boto3
 
 logger = Logger()
+_sns = boto3.client("sns")
 
 
 def generate_activation_code() -> str:
@@ -15,20 +17,15 @@ def generate_activation_code() -> str:
 
 
 def publish_invite_sms(mobile: str, activation_code: str):
-    sns = boto3.client("sns")
-    response = sns.publish(
-        PhoneNumber=mobile,
-        Message=f"Your activation code is: {activation_code}",
-        MessageAttributes={
-            "AWS.SNS.SMS.SMSType": {
-                "DataType": "String",
-                "StringValue": "Transactional",
-            }
-        },
+    topic_arn = os.environ["SMS_TOPIC_ARN"]
+    message = f"Your NIB activation code is: {activation_code}"
+    response = _sns.publish(
+        TopicArn=topic_arn,
+        Message=json.dumps({"mobile": mobile, "message": message}),
     )
     status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
     if status_code != 200:
-        logger.error("SMS may not have been sent successfully", extra={"sns_response": response})
+        logger.error("SNS publish failed", extra={"sns_response": response})
         raise RuntimeError(f"SNS publish failed with status {status_code}")
 
 

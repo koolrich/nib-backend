@@ -108,11 +108,16 @@ resource "aws_iam_policy" "nib_lambda_policy" {
         Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/nib/*"
       },
       {
-        Sid    = "AllowSMSPublish"
+        Sid      = "AllowSMSTopicPublish"
+        Effect   = "Allow"
+        Action   = "sns:Publish"
+        Resource = aws_sns_topic.sms.arn
+      },
+      {
+        Sid    = "SSMDecryptAccess"
         Effect = "Allow"
-        Action = "sns:Publish"
-        Resource = "*"
-        # This wildcard is required when publishing SMS messages directly to phone numbers
+        Action = "kms:Decrypt"
+        Resource = "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:alias/aws/ssm"
       },
       {
         Sid = "LambdaFunctionCreationAccess"
@@ -202,6 +207,74 @@ resource "aws_vpc_endpoint" "cognito_idp" {
 }
 
 
+# ── SMS fan-out topic ─────────────────────────────────────────────────────────
+
+resource "aws_sns_topic" "sms" {
+  name = "nib-sms-topic-${var.environment}"
+  tags = local.common_tags
+}
+
+resource "aws_ssm_parameter" "twilio_account_sid" {
+  name  = "/nib/twilio/account_sid"
+  type  = "SecureString"
+  value = var.twilio_account_sid
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "twilio_auth_token" {
+  name  = "/nib/twilio/auth_token"
+  type  = "SecureString"
+  value = var.twilio_auth_token
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "twilio_from_number" {
+  name  = "/nib/twilio/from_number"
+  type  = "String"
+  value = var.twilio_from_number
+  tags  = local.common_tags
+}
+
+# sms_dispatcher runs outside the VPC so it can reach api.twilio.com
+resource "aws_lambda_function" "sms_dispatcher" {
+  function_name    = "sms_dispatcher"
+  role             = aws_iam_role.nib_lambda_execution_role.arn
+  handler          = "src.functions.sms_dispatcher.sms_dispatcher.handler"
+  runtime          = "python3.13"
+  s3_bucket        = var.lambda_artifact_bucket
+  s3_key           = "functions/sms_dispatcher.zip"
+  source_code_hash = filebase64sha256("sms_dispatcher.zip")
+  layers           = [aws_lambda_layer_version.shared_layer.arn]
+  timeout          = 30
+
+  environment {
+    variables = { ENV = var.environment }
+  }
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  tags = local.common_tags
+  depends_on = [aws_iam_role_policy_attachment.lambda_attach]
+}
+
+resource "aws_lambda_permission" "sns_invoke_dispatcher" {
+  statement_id  = "AllowSNSInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.sms_dispatcher.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.sms.arn
+}
+
+resource "aws_sns_topic_subscription" "sms_dispatcher" {
+  topic_arn = aws_sns_topic.sms.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.sms_dispatcher.arn
+}
+
+# ── Cognito SSM params ────────────────────────────────────────────────────────
+
 resource "aws_ssm_parameter" "cognito_user_pool_id" {
   name  = "/nib/cognito/user_pool_id"
   type  = "String"
@@ -235,7 +308,7 @@ module "lambda_function_send_invite" {
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.send_invite.send_invite.handler"
   lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
-  lambda_environment_variables = { ENV = "dev" }
+  lambda_environment_variables = { ENV = "dev", SMS_TOPIC_ARN = aws_sns_topic.sms.arn }
   vpc_subnet_ids               = module.vpc.lambda_subnet_ids
   vpc_id                       = module.vpc.vpc_id
   lambda_sg_id                 = module.vpc.lambda_sg_id
