@@ -163,7 +163,8 @@ components:
           enum: [spouse, other]
       required: [first_name, last_name, mobile, relationship]
 
-    Event:
+    EventCreated:
+      description: Response shape when an event is first created (no aggregate totals yet)
       type: object
       properties:
         id:
@@ -185,9 +186,33 @@ components:
         description:
           type: string
           nullable: true
-        created_by:
+        created_at:
+          type: string
+          format: date-time
+
+    Event:
+      description: Event with live aggregate totals (returned by list and get)
+      type: object
+      properties:
+        id:
           type: string
           format: uuid
+        title:
+          type: string
+          example: "August General Meeting"
+        date:
+          type: string
+          format: date
+          example: "2026-08-12"
+        type:
+          type: string
+          enum: [pledge, contribution]
+        status:
+          type: string
+          enum: [upcoming, completed]
+        description:
+          type: string
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -198,7 +223,56 @@ components:
           type: integer
           example: 4
 
+    EventUpdated:
+      description: Response shape after a PATCH — includes updated_at, no aggregate totals
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        date:
+          type: string
+          format: date
+        type:
+          type: string
+          enum: [pledge, contribution]
+        status:
+          type: string
+          enum: [upcoming, completed]
+        description:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+
+    EventItemCreated:
+      description: Response shape when items are added to an event (no pledge aggregates yet)
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Crates of Coke"
+        quantity_needed:
+          type: number
+          example: 10
+        unit:
+          type: string
+          example: "crates"
+        created_at:
+          type: string
+          format: date-time
+
     EventItem:
+      description: Event item with live pledge aggregates (returned within GET /events/{id})
       type: object
       properties:
         id:
@@ -226,7 +300,34 @@ components:
           type: boolean
           example: true
 
+    PledgeCreated:
+      description: Response shape when a pledge is created or updated (no member/item name joins)
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        member_id:
+          type: string
+          format: uuid
+        event_item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+          example: 5
+        status:
+          type: string
+          enum: [pledged, cancelled]
+        created_at:
+          type: string
+          format: date-time
+
     Pledge:
+      description: Pledge with joined member and item names (returned within GET /events/{id})
       type: object
       properties:
         id:
@@ -287,6 +388,113 @@ components:
         note:
           type: string
           nullable: true
+
+    MembershipPeriod:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        membership_id:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          format: date
+          example: "2024-01-01"
+        end_date:
+          type: string
+          format: date
+          example: "2024-12-31"
+        status:
+          type: string
+          enum: [active, expired]
+        created_at:
+          type: string
+          format: date-time
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        membership_period_id:
+          type: string
+          format: uuid
+        invoice_number:
+          type: string
+          example: "NIB-0001"
+        issue_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        amount_due:
+          type: number
+          example: 60.00
+        status:
+          type: string
+          enum: [unpaid, partial, paid]
+        created_at:
+          type: string
+          format: date-time
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          example: 25.00
+        method:
+          type: string
+          enum: [bank_transfer, cash, cheque, other]
+        reference:
+          type: string
+          nullable: true
+          example: "REF123"
+        received_at:
+          type: string
+          format: date-time
+        note:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StatementPayment:
+      description: Payment as returned within a member statement (no invoice_id redundancy)
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          example: 25.00
+        method:
+          type: string
+          enum: [bank_transfer, cash, cheque, other]
+        reference:
+          type: string
+          nullable: true
+        received_at:
+          type: string
+          format: date-time
+        note:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
 
     MyPledge:
       type: object
@@ -504,7 +712,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Event'
+                $ref: '#/components/schemas/EventCreated'
         '403':
           description: Executive access required
           content:
@@ -626,7 +834,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Event'
+                $ref: '#/components/schemas/EventUpdated'
         '403':
           description: Executive access required
           content:
@@ -694,7 +902,7 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/EventItem'
+                      $ref: '#/components/schemas/EventItemCreated'
         '403':
           description: Executive access required
           content:
@@ -751,7 +959,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pledge'
+                $ref: '#/components/schemas/PledgeCreated'
         '404':
           description: Event or item not found
           content:
@@ -810,7 +1018,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pledge'
+                $ref: '#/components/schemas/PledgeCreated'
         '403':
           description: Pledge does not belong to calling member
           content:
@@ -979,6 +1187,321 @@ paths:
                       $ref: '#/components/schemas/MyPledge'
         '403':
           description: Authenticated member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /members/{id}/membership-periods:
+    post:
+      summary: Create a membership period for a legacy member
+      description: |
+        Manually creates a membership period and invoice for a legacy member.
+        Executive or admin only. Non-legacy members have periods auto-created by a scheduled job.
+      operationId: createMembershipPeriod
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                period_start:
+                  type: string
+                  format: date
+                  example: "2024-01-01"
+                period_end:
+                  type: string
+                  format: date
+                  example: "2024-12-31"
+              required: [period_start, period_end]
+      responses:
+        '201':
+          description: Membership period and invoice created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  membership_period:
+                    $ref: '#/components/schemas/MembershipPeriod'
+                  invoice:
+                    $ref: '#/components/schemas/Invoice'
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Member is not legacy, has no membership record, or missing dates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /membership-periods/{id}:
+    patch:
+      summary: Update a membership period
+      description: |
+        Update fields on a membership period (e.g. mark as expired).
+        Executive or admin only. All fields are optional.
+      operationId: patchMembershipPeriod
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [active, expired]
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Membership period updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPeriod'
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Membership period not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Invalid status value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /invoices/{id}/payments:
+    post:
+      summary: Record a payment against an invoice
+      description: |
+        Records a partial or full payment toward an outstanding invoice.
+        Executive or admin only.
+        - Amount must not exceed the outstanding balance.
+        - Invoice status is updated automatically (unpaid → partial → paid).
+      operationId: recordPayment
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  example: 25.00
+                method:
+                  type: string
+                  enum: [bank_transfer, cash, cheque, other]
+                reference:
+                  type: string
+                  nullable: true
+                  example: "REF123"
+                received_at:
+                  type: string
+                  format: date-time
+                  example: "2026-02-01T10:00:00Z"
+                note:
+                  type: string
+                  nullable: true
+              required: [amount, method, received_at]
+      responses:
+        '201':
+          description: Payment recorded. Invoice summary shows updated status and balances.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Payment'
+                  - type: object
+                    properties:
+                      invoice:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [unpaid, partial, paid]
+                          amount_due:
+                            type: number
+                          total_paid:
+                            type: number
+                          outstanding:
+                            type: number
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invoice not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Invoice already paid, amount exceeds balance, invalid method, or missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /payments/{id}:
+    delete:
+      summary: Delete a payment
+      description: |
+        Deletes a payment record. Executive or admin only.
+        Invoice status is recalculated automatically after deletion.
+        Use this to correct a mistakenly recorded payment.
+      operationId: deletePayment
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Payment deleted. Returns the recalculated invoice status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Payment deleted"
+                  invoice_status:
+                    type: string
+                    enum: [unpaid, partial, paid]
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /members/{id}/statement:
+    get:
+      summary: Get a member's payment statement
+      description: |
+        Returns the member's active membership period, current invoice with balances,
+        and all payments made against that invoice.
+        Members can only view their own statement. Executives can view any member's statement.
+        Returns period: null and invoice: null if no active period or invoice exists.
+      operationId: getMemberStatement
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member statement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  member_id:
+                    type: string
+                    format: uuid
+                  membership_type:
+                    type: string
+                    nullable: true
+                    example: "individual"
+                  period:
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/MembershipPeriod'
+                  invoice:
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/Invoice'
+                      - type: object
+                        properties:
+                          total_paid:
+                            type: number
+                            example: 25.00
+                          outstanding:
+                            type: number
+                            example: 35.00
+                  payments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StatementPayment'
+        '403':
+          description: Access denied (non-executive viewing another member's statement)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Member not found
           content:
             application/json:
               schema:
