@@ -4,14 +4,14 @@ provider "aws" {
 
 locals {
   common_tags = {
-    Project = var.project 
+    Project = var.project
   }
 }
 
 terraform {
   backend "s3" {
     bucket         = "nib-terraform-state-1"
-    key            = "envs/dev/terraform.tfstate"
+    key            = "envs/prod/terraform.tfstate"
     region         = "eu-west-2"
     use_lockfile   = true
     encrypt        = true
@@ -19,27 +19,27 @@ terraform {
 }
 
 module "vpc" {
-  source      = "../../modules/vpc"
-  project     = var.project
-  cidr_block  = var.vpc_cidr
-  aws_region  = var.aws_region
-  name        = "nib-vpc"
-  subnets     = var.subnets
+  source         = "../../modules/vpc"
+  project        = var.project
+  cidr_block     = var.vpc_cidr
+  aws_region     = var.aws_region
+  name           = "nib-vpc"
+  subnets        = var.subnets
   lambda_sg_name = "nib-lambda-sg"
-  environment = var.environment
+  environment    = var.environment
 }
 
 module "db" {
-  source                = "../../modules/db"
-  db_user               = var.db_user
-  db_name               = var.db_name
-  db_sg_name = "nib-db-sg"
-  subnet_ids            = module.vpc.db_subnet_ids
-  vpc_id                = module.vpc.vpc_id
-  lambda_sg_id          = module.vpc.lambda_sg_id
-  db_subnet_group_name  = "nib-db-subnet-group"
-  project               = var.project
-  environment = var.environment
+  source               = "../../modules/db"
+  db_user              = var.db_user
+  db_name              = var.db_name
+  db_sg_name           = "nib-db-sg"
+  subnet_ids           = module.vpc.db_subnet_ids
+  vpc_id               = module.vpc.vpc_id
+  lambda_sg_id         = module.vpc.lambda_sg_id
+  db_subnet_group_name = "nib-db-subnet-group"
+  project              = var.project
+  environment          = var.environment
 }
 
 module "cognito" {
@@ -53,12 +53,12 @@ module "cognito" {
     "ALLOW_USER_SRP_AUTH",
     "ALLOW_ADMIN_USER_PASSWORD_AUTH"
   ]
-  alias_attributes          = ["phone_number"]
-  generate_secret           = false
-  password_min_length       = 8
-  password_require_numbers  = true
+  alias_attributes           = ["phone_number"]
+  generate_secret            = false
+  password_min_length        = 8
+  password_require_numbers   = true
   password_require_lowercase = true
-  environment = var.environment
+  environment                = var.environment
 }
 
 resource "aws_iam_role" "nib_lambda_execution_role" {
@@ -68,22 +68,20 @@ resource "aws_iam_role" "nib_lambda_execution_role" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow",
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        },
-        Action = "sts:AssumeRole"
+        Effect    = "Allow",
+        Principal = { Service = "lambda.amazonaws.com" },
+        Action    = "sts:AssumeRole"
       }
     ]
   })
 
- tags = local.common_tags
+  tags = local.common_tags
 }
 
 data "aws_caller_identity" "current" {}
 
 resource "aws_iam_policy" "nib_lambda_policy" {
-  name = "NIBLambdaPolicy"
+  name = "NIBLambdaPolicy-${var.environment}"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -114,13 +112,13 @@ resource "aws_iam_policy" "nib_lambda_policy" {
         Resource = aws_sns_topic.sms.arn
       },
       {
-        Sid    = "SSMDecryptAccess"
-        Effect = "Allow"
-        Action = "kms:Decrypt"
+        Sid      = "SSMDecryptAccess"
+        Effect   = "Allow"
+        Action   = "kms:Decrypt"
         Resource = "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:alias/aws/ssm"
       },
       {
-        Sid = "LambdaFunctionCreationAccess"
+        Sid    = "LambdaFunctionCreationAccess"
         Effect = "Allow",
         Action = [
           "lambda:CreateFunction",
@@ -130,7 +128,7 @@ resource "aws_iam_policy" "nib_lambda_policy" {
         Resource = "*"
       },
       {
-        Sid = "LambdaXrayAccess"
+        Sid    = "LambdaXrayAccess"
         Effect = "Allow",
         Action = [
           "xray:PutTraceSegments",
@@ -153,7 +151,7 @@ resource "aws_iam_policy" "nib_lambda_policy" {
       }
     ]
   })
-  
+
   tags = local.common_tags
 }
 
@@ -167,17 +165,16 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-
 module "sns_endpoint" {
-  source             = "../../modules/vpc_interface_endpoint"
-  service_name       = "sns"
-  vpc_id             = module.vpc.vpc_id
-  subnet_ids         = module.vpc.lambda_subnet_ids
+  source                    = "../../modules/vpc_interface_endpoint"
+  service_name              = "sns"
+  vpc_id                    = module.vpc.vpc_id
+  subnet_ids                = module.vpc.lambda_subnet_ids
   source_security_group_ids = [module.vpc.lambda_sg_id]
-  aws_region = var.aws_region
-  enable_private_dns = true
-  project               = var.project
-  environment = var.environment
+  aws_region                = var.aws_region
+  enable_private_dns        = true
+  project                   = var.project
+  environment               = var.environment
 }
 
 resource "aws_vpc_endpoint" "ssm" {
@@ -188,9 +185,7 @@ resource "aws_vpc_endpoint" "ssm" {
   security_group_ids  = [module.sns_endpoint.security_group_id]
   private_dns_enabled = true
 
-  tags = merge(local.common_tags, {
-    Name = "ssm-endpoint"
-  })
+  tags = merge(local.common_tags, { Name = "ssm-endpoint" })
 }
 
 resource "aws_vpc_endpoint" "cognito_idp" {
@@ -201,11 +196,8 @@ resource "aws_vpc_endpoint" "cognito_idp" {
   security_group_ids  = [module.sns_endpoint.security_group_id]
   private_dns_enabled = true
 
-  tags = merge(local.common_tags, {
-    Name = "cognito-idp-endpoint"
-  })
+  tags = merge(local.common_tags, { Name = "cognito-idp-endpoint" })
 }
-
 
 # ── SMS fan-out topic ─────────────────────────────────────────────────────────
 
@@ -255,7 +247,7 @@ resource "aws_lambda_function" "sms_dispatcher" {
     mode = "Active"
   }
 
-  tags = local.common_tags
+  tags       = local.common_tags
   depends_on = [aws_iam_role_policy_attachment.lambda_attach]
 }
 
@@ -279,16 +271,14 @@ resource "aws_ssm_parameter" "cognito_user_pool_id" {
   name  = "/nib/cognito/user_pool_id"
   type  = "String"
   value = module.cognito.user_pool_id
-
-  tags = local.common_tags
+  tags  = local.common_tags
 }
 
 resource "aws_ssm_parameter" "cognito_app_client_id" {
   name  = "/nib/cognito/app_client_id"
   type  = "String"
   value = module.cognito.app_client_id
-
-  tags = local.common_tags
+  tags  = local.common_tags
 }
 
 resource "aws_lambda_layer_version" "shared_layer" {
@@ -296,7 +286,7 @@ resource "aws_lambda_layer_version" "shared_layer" {
   s3_key              = "layers/layer.zip"
   layer_name          = "shared_layer"
   compatible_runtimes = ["python3.13"]
-  source_code_hash = filebase64sha256("layer.zip")
+  source_code_hash    = filebase64sha256("layer.zip")
 }
 
 module "lambda_function_send_invite" {
@@ -308,7 +298,7 @@ module "lambda_function_send_invite" {
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.send_invite.send_invite.handler"
   lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
-  lambda_environment_variables = { ENV = "dev", SMS_TOPIC_ARN = aws_sns_topic.sms.arn }
+  lambda_environment_variables = { ENV = var.environment, SMS_TOPIC_ARN = aws_sns_topic.sms.arn }
   vpc_subnet_ids               = module.vpc.lambda_subnet_ids
   vpc_id                       = module.vpc.vpc_id
   lambda_sg_id                 = module.vpc.lambda_sg_id
@@ -555,4 +545,3 @@ module "api_gateway" {
     }
   }
 }
-

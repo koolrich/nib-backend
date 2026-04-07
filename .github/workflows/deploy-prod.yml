@@ -20,18 +20,56 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: uv sync
+
       - name: Configure AWS Credentials (OIDC Assume Role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::021891595998:role/TerraformUserRole
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Package Layer
+        run: |
+          cd src/layer
+          mkdir -p python
+          uv pip install -r requirements.txt --target python/
+          cp -r ../shared python/
+          zip -r "$GITHUB_WORKSPACE/layer.zip" python/
+          cp "$GITHUB_WORKSPACE/layer.zip" "$GITHUB_WORKSPACE/infra/environments/prod/"
+
+      - name: Package Lambda Functions
+        run: |
+          for fn in src/functions/*; do
+            name=$(basename "$fn")
+            zip -r "$name.zip" "$fn" -x "*__pycache__/*" -x "*.pyc"
+            aws s3 cp "$name.zip" "s3://$S3_BUCKET/functions/$name.zip"
+            cp "$name.zip" infra/environments/prod/
+          done
+
+      - name: Upload Layer Artifact to S3
+        run: |
+          aws s3 cp "$GITHUB_WORKSPACE/layer.zip" s3://$S3_BUCKET/layers/layer.zip
+
+      - name: Package and Upload Migrations Folder
+        run: |
+          zip -r migrations.zip migrations/
+          aws s3 cp migrations.zip s3://$S3_BUCKET/db-migrations/migrations.zip
+
       - name: Set up Terraform CLI
         uses: hashicorp/setup-terraform@v2
         with:
-            terraform_version: "1.12.2"
+          terraform_version: "1.12.2"
 
       - name: Terraform Apply (Prod)
+        env:
+          TF_VAR_twilio_account_sid: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TF_VAR_twilio_auth_token: ${{ secrets.TWILIO_AUTH_TOKEN }}
         run: |
           cd infra/environments/prod
           terraform init
