@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
 from decimal import Decimal
+import json
 import functions.payments.payments as payments
 from utils import generate_context, generate_api_gw_event
 
@@ -31,21 +32,6 @@ PAYMENT_ROW = {
     "created_at": "2026-04-07T00:00:00",
 }
 
-VALID_PAYMENT_BODY = {
-    "amount": 25.00,
-    "method": "bank_transfer",
-    "reference": "REF123",
-    "received_at": "2026-02-01T10:00:00Z",
-    "note": "Monthly instalment",
-}
-
-MEMBER_INFO = {
-    "id": "member-uuid-1234",
-    "is_legacy": False,
-    "membership_id": "membership-uuid-1234",
-    "membership_type": "individual",
-}
-
 PERIOD_ROW = {
     "id": "period-uuid-1234",
     "membership_id": "membership-uuid-1234",
@@ -55,287 +41,217 @@ PERIOD_ROW = {
     "created_at": "2026-01-01T00:00:00",
 }
 
+MEMBER_INFO = {
+    "id": "member-uuid-1234",
+    "is_legacy": False,
+    "membership_id": "membership-uuid-1234",
+    "membership_type": "individual",
+}
 
-# --- POST /invoices/{id}/payments ---
+VALID_PAYMENT_BODY = {
+    "amount": 25.00,
+    "method": "bank_transfer",
+    "reference": "REF123",
+    "received_at": "2026-02-01T10:00:00Z",
+    "note": "Monthly instalment",
+}
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_invoice_by_id", return_value=UNPAID_INVOICE)
-@patch("functions.payments.payments.get_total_paid", return_value=Decimal("0.00"))
-@patch("functions.payments.payments.insert_payment", return_value=PAYMENT_ROW)
-@patch("functions.payments.payments.update_invoice_status")
-def test_record_payment_201_partial(mock_update, mock_insert, mock_total,
-                                    mock_invoice, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event(VALID_PAYMENT_BODY, route_key="POST /invoices/{id}/payments",
-                              path_params={"id": "invoice-uuid-1234"}),
-        generate_context(),
-    )
+
+def _make_uow(caller=EXEC_MEMBER, invoice=UNPAID_INVOICE, total_paid=Decimal("0.00"),
+              payment_row=PAYMENT_ROW, payment_by_id=None, member_by_id=None,
+              member_with_type=MEMBER_INFO, period=PERIOD_ROW, invoice_by_period=None,
+              all_payments=None):
+    uow = MagicMock()
+    uow.__enter__ = MagicMock(return_value=uow)
+    uow.__exit__ = MagicMock(return_value=False)
+    uow.members.get_by_cognito_sub.return_value = caller
+    uow.members.get_by_id.return_value = member_by_id or {"id": "member-uuid-1234", "membership_id": "membership-uuid-1234"}
+    uow.members.get_with_membership_type.return_value = member_with_type
+    uow.invoices.get_by_id.return_value = invoice
+    uow.invoices.get_by_period_id.return_value = invoice_by_period or invoice
+    uow.payments.get_total_by_invoice.return_value = total_paid
+    uow.payments.insert.return_value = payment_row
+    uow.payments.get_by_id.return_value = payment_by_id or PAYMENT_ROW
+    uow.payments.get_all_by_invoice.return_value = all_payments or []
+    uow.periods.get_active_for_membership.return_value = period
+    return uow
+
+
+def _event(route_key, body=None, path_params=None):
+    return generate_api_gw_event(body, route_key=route_key, path_params=path_params)
+
+
+# ── POST /invoices/{id}/payments ──────────────────────────────────────────────
+
+@patch("functions.payments.payments.PaymentUoW")
+def test_record_payment_201_partial(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = payments.handler(_event("POST /invoices/{id}/payments", VALID_PAYMENT_BODY,
+                                     {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 201
-    import json
     body = json.loads(result["body"])
     assert body["invoice"]["status"] == "partial"
     assert body["invoice"]["outstanding"] == 35.0
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_invoice_by_id", return_value=UNPAID_INVOICE)
-@patch("functions.payments.payments.get_total_paid", return_value=Decimal("0.00"))
-@patch("functions.payments.payments.insert_payment", return_value={**PAYMENT_ROW, "amount": Decimal("60.00")})
-@patch("functions.payments.payments.update_invoice_status")
-def test_record_payment_201_paid(mock_update, mock_insert, mock_total,
-                                 mock_invoice, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({**VALID_PAYMENT_BODY, "amount": 60.00},
-                              route_key="POST /invoices/{id}/payments",
-                              path_params={"id": "invoice-uuid-1234"}),
-        generate_context(),
+@patch("functions.payments.payments.PaymentUoW")
+def test_record_payment_201_paid(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(
+        payment_row={**PAYMENT_ROW, "amount": Decimal("60.00")}
     )
+    result = payments.handler(_event("POST /invoices/{id}/payments",
+                                     {**VALID_PAYMENT_BODY, "amount": 60.00},
+                                     {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 201
-    import json
     body = json.loads(result["body"])
     assert body["invoice"]["status"] == "paid"
     assert body["invoice"]["outstanding"] == 0.0
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=REGULAR_MEMBER)
-def test_record_payment_403_not_exec(mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event(VALID_PAYMENT_BODY, route_key="POST /invoices/{id}/payments",
-                              path_params={"id": "invoice-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_record_payment_403_not_exec(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
+    result = payments.handler(_event("POST /invoices/{id}/payments", VALID_PAYMENT_BODY,
+                                     {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 403
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_invoice_by_id", return_value=None)
-def test_record_payment_404_invoice_not_found(mock_invoice, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event(VALID_PAYMENT_BODY, route_key="POST /invoices/{id}/payments",
-                              path_params={"id": "nonexistent"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_record_payment_404_invoice_not_found(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(invoice=None)
+    result = payments.handler(_event("POST /invoices/{id}/payments", VALID_PAYMENT_BODY,
+                                     {"id": "nonexistent"}), generate_context())
     assert result["statusCode"] == 404
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_invoice_by_id", return_value=PAID_INVOICE)
-def test_record_payment_422_invoice_paid(mock_invoice, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event(VALID_PAYMENT_BODY, route_key="POST /invoices/{id}/payments",
-                              path_params={"id": "invoice-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_record_payment_422_invoice_paid(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(invoice=PAID_INVOICE)
+    result = payments.handler(_event("POST /invoices/{id}/payments", VALID_PAYMENT_BODY,
+                                     {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_invoice_by_id", return_value=UNPAID_INVOICE)
-@patch("functions.payments.payments.get_total_paid", return_value=Decimal("0.00"))
-def test_record_payment_422_exceeds_balance(mock_total, mock_invoice, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({**VALID_PAYMENT_BODY, "amount": 999.00},
-                              route_key="POST /invoices/{id}/payments",
-                              path_params={"id": "invoice-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_record_payment_422_exceeds_balance(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = payments.handler(_event("POST /invoices/{id}/payments",
+                                     {**VALID_PAYMENT_BODY, "amount": 999.00},
+                                     {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_invoice_by_id", return_value=UNPAID_INVOICE)
-@patch("functions.payments.payments.get_total_paid", return_value=Decimal("0.00"))
-def test_record_payment_422_invalid_method(mock_total, mock_invoice, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({**VALID_PAYMENT_BODY, "method": "crypto"},
-                              route_key="POST /invoices/{id}/payments",
-                              path_params={"id": "invoice-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_record_payment_422_invalid_method(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = payments.handler(_event("POST /invoices/{id}/payments",
+                                     {**VALID_PAYMENT_BODY, "method": "crypto"},
+                                     {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_invoice_by_id", return_value=UNPAID_INVOICE)
-@patch("functions.payments.payments.get_total_paid", return_value=Decimal("0.00"))
-def test_record_payment_422_missing_fields(mock_total, mock_invoice, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({"amount": 25.00}, route_key="POST /invoices/{id}/payments",
-                              path_params={"id": "invoice-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_record_payment_422_missing_fields(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = payments.handler(_event("POST /invoices/{id}/payments", {"amount": 25.00},
+                                     {"id": "invoice-uuid-1234"}), generate_context())
     assert result["statusCode"] == 422
 
 
-# --- DELETE /payments/{id} ---
+# ── DELETE /payments/{id} ─────────────────────────────────────────────────────
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_payment_by_id", return_value=PAYMENT_ROW)
-@patch("functions.payments.payments.delete_payment")
-@patch("functions.payments.payments.get_total_paid", return_value=Decimal("0.00"))
-@patch("functions.payments.payments.get_invoice_by_id", return_value=UNPAID_INVOICE)
-@patch("functions.payments.payments.update_invoice_status")
-def test_delete_payment_200_resets_to_unpaid(mock_update, mock_invoice, mock_total,
-                                              mock_delete, mock_get, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event(None, route_key="DELETE /payments/{id}",
-                              path_params={"id": "payment-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_delete_payment_200_resets_to_unpaid(mock_uow_cls):
+    uow = _make_uow(total_paid=Decimal("0.00"))
+    mock_uow_cls.return_value = uow
+    result = payments.handler(_event("DELETE /payments/{id}", None,
+                                     {"id": "payment-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
-    import json
     body = json.loads(result["body"])
     assert body["invoice_status"] == "unpaid"
-    mock_update.assert_called_once_with(mock_db, "invoice-uuid-1234", "unpaid")
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=REGULAR_MEMBER)
-def test_delete_payment_403_not_exec(mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event(None, route_key="DELETE /payments/{id}",
-                              path_params={"id": "payment-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_delete_payment_403_not_exec(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
+    result = payments.handler(_event("DELETE /payments/{id}", None,
+                                     {"id": "payment-uuid-1234"}), generate_context())
     assert result["statusCode"] == 403
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_payment_by_id", return_value=None)
-def test_delete_payment_404_not_found(mock_get, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event(None, route_key="DELETE /payments/{id}",
-                              path_params={"id": "nonexistent"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_delete_payment_404_not_found(mock_uow_cls):
+    uow = _make_uow()
+    uow.payments.get_by_id.return_value = None
+    mock_uow_cls.return_value = uow
+    result = payments.handler(_event("DELETE /payments/{id}", None,
+                                     {"id": "nonexistent"}), generate_context())
     assert result["statusCode"] == 404
 
 
-# --- GET /members/{id}/statement ---
+# ── GET /members/{id}/statement ───────────────────────────────────────────────
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_member_by_id", return_value={"id": "member-uuid-1234", "membership_id": "membership-uuid-1234", "is_legacy": False})
-@patch("functions.payments.payments.get_member_with_membership_type", return_value=MEMBER_INFO)
-@patch("functions.payments.payments.get_active_period_for_membership", return_value=PERIOD_ROW)
-@patch("functions.payments.payments.get_invoice_by_period_id", return_value=UNPAID_INVOICE)
-@patch("functions.payments.payments.get_payments_by_invoice", return_value=[])
-def test_get_statement_200_no_payments(mock_pmts, mock_invoice, mock_period, mock_info,
-                                       mock_member, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({}, route_key="GET /members/{id}/statement",
-                              path_params={"id": "member-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_get_statement_200_no_payments(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = payments.handler(_event("GET /members/{id}/statement", None,
+                                     {"id": "member-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
-    import json
     body = json.loads(result["body"])
     assert body["invoice"]["outstanding"] == 60.0
     assert body["payments"] == []
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=REGULAR_MEMBER)
-@patch("functions.payments.payments.get_member_by_id", return_value={"id": "member-uuid-1234", "membership_id": "membership-uuid-1234", "is_legacy": False})
-@patch("functions.payments.payments.get_member_with_membership_type", return_value=MEMBER_INFO)
-@patch("functions.payments.payments.get_active_period_for_membership", return_value=PERIOD_ROW)
-@patch("functions.payments.payments.get_invoice_by_period_id", return_value=UNPAID_INVOICE)
-@patch("functions.payments.payments.get_payments_by_invoice", return_value=[])
-def test_get_statement_200_own_statement(mock_pmts, mock_invoice, mock_period, mock_info,
-                                         mock_member, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({}, route_key="GET /members/{id}/statement",
-                              path_params={"id": "member-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_get_statement_200_own_statement(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER,
+                                           member_by_id={"id": "member-uuid-1234", "membership_id": "m-uuid"})
+    result = payments.handler(_event("GET /members/{id}/statement", None,
+                                     {"id": "member-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=REGULAR_MEMBER)
-@patch("functions.payments.payments.get_member_by_id", return_value={"id": "other-member-uuid", "membership_id": "membership-uuid-1234", "is_legacy": False})
-def test_get_statement_403_other_member(mock_member, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({}, route_key="GET /members/{id}/statement",
-                              path_params={"id": "other-member-uuid"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_get_statement_403_other_member(mock_uow_cls):
+    uow = _make_uow(caller=REGULAR_MEMBER)
+    uow.members.get_by_id.return_value = {"id": "other-member-uuid", "membership_id": "m-uuid"}
+    mock_uow_cls.return_value = uow
+    result = payments.handler(_event("GET /members/{id}/statement", None,
+                                     {"id": "other-member-uuid"}), generate_context())
     assert result["statusCode"] == 403
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_member_by_id", return_value=None)
-def test_get_statement_404_member_not_found(mock_member, mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({}, route_key="GET /members/{id}/statement",
-                              path_params={"id": "nonexistent"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_get_statement_404_member_not_found(mock_uow_cls):
+    uow = _make_uow()
+    uow.members.get_by_id.return_value = None
+    mock_uow_cls.return_value = uow
+    result = payments.handler(_event("GET /members/{id}/statement", None,
+                                     {"id": "nonexistent"}), generate_context())
     assert result["statusCode"] == 404
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_member_by_id", return_value={"id": "member-uuid-1234", "membership_id": "membership-uuid-1234", "is_legacy": True})
-@patch("functions.payments.payments.get_member_with_membership_type", return_value=MEMBER_INFO)
-@patch("functions.payments.payments.get_active_period_for_membership", return_value=None)
-def test_get_statement_200_no_active_period(mock_period, mock_info, mock_member,
-                                            mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({}, route_key="GET /members/{id}/statement",
-                              path_params={"id": "member-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_get_statement_200_no_active_period(mock_uow_cls):
+    uow = _make_uow()
+    uow.periods.get_active_for_membership.return_value = None
+    mock_uow_cls.return_value = uow
+    result = payments.handler(_event("GET /members/{id}/statement", None,
+                                     {"id": "member-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
-    import json
     body = json.loads(result["body"])
     assert body["period"] is None
     assert body["invoice"] is None
 
 
-@patch("functions.payments.payments.get_connection")
-@patch("functions.payments.payments.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.payments.payments.get_member_by_id", return_value={"id": "member-uuid-1234", "membership_id": "membership-uuid-1234", "is_legacy": True})
-@patch("functions.payments.payments.get_member_with_membership_type", return_value=MEMBER_INFO)
-@patch("functions.payments.payments.get_active_period_for_membership", return_value=PERIOD_ROW)
-@patch("functions.payments.payments.get_invoice_by_period_id", return_value=None)
-def test_get_statement_200_no_invoice(mock_invoice, mock_period, mock_info, mock_member,
-                                      mock_ctx, mock_conn, mock_db):
-    mock_conn.return_value = mock_db
-    result = payments.handler(
-        generate_api_gw_event({}, route_key="GET /members/{id}/statement",
-                              path_params={"id": "member-uuid-1234"}),
-        generate_context(),
-    )
+@patch("functions.payments.payments.PaymentUoW")
+def test_get_statement_200_no_invoice(mock_uow_cls):
+    uow = _make_uow(invoice_by_period=None)
+    uow.invoices.get_by_period_id.return_value = None
+    mock_uow_cls.return_value = uow
+    result = payments.handler(_event("GET /members/{id}/statement", None,
+                                     {"id": "member-uuid-1234"}), generate_context())
     assert result["statusCode"] == 200
-    import json
     body = json.loads(result["body"])
     assert body["period"] is not None
     assert body["invoice"] is None

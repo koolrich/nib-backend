@@ -1,95 +1,19 @@
+import json
 import uuid
-import boto3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from shared.db import get_connection
-from shared.models.invite_request import InviteRequest
-from shared.instrumentation.tracer import tracer
-from shared.reference_data.invite_status import InviteStatus
 from aws_lambda_powertools import Logger
+from shared.reference_data.invite_status import InviteStatus
+
+import boto3
 
 logger = Logger()
 
-INVITE_EXPIRY_DAYS = 30
+
+def generate_activation_code() -> str:
+    return uuid.uuid4().hex[:8].upper()
 
 
-@tracer.capture_method(name="CheckMobileAlreadyMember")
-def mobile_is_member(conn, mobile: str) -> bool:
-    with conn.cursor() as cur:
-        cur.execute("SELECT EXISTS (SELECT 1 FROM members WHERE mobile = %s)", (mobile,))
-        return cur.fetchone()[0]
-
-
-@tracer.capture_method(name="CheckPendingInviteExists")
-def pending_invite_exists(conn, mobile: str) -> bool:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT EXISTS (SELECT 1 FROM invites WHERE mobile = %s AND status = %s)",
-            (mobile, InviteStatus.PENDING.value),
-        )
-        return cur.fetchone()[0]
-
-
-@tracer.capture_method(name="InsertInvite")
-def insert_invite(conn, invite_request: InviteRequest, activation_code: str, invited_by: str):
-    expires_at = datetime.now(timezone.utc) + timedelta(days=INVITE_EXPIRY_DAYS)
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO invites (
-                first_name, last_name, mobile, activation_code,
-                invited_by, relationship, status, is_legacy, expires_at, date_joined
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                invite_request.first_name,
-                invite_request.last_name,
-                invite_request.mobile,
-                activation_code,
-                invited_by,
-                invite_request.relationship,
-                InviteStatus.PENDING.value,
-                invite_request.is_legacy,
-                expires_at,
-                invite_request.date_joined,
-            ),
-        )
-
-
-@tracer.capture_method(name="GetInviteByActivationCode")
-def get_invite_by_activation_code(conn, activation_code: str):
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, status, relationship, mobile, first_name, last_name,
-                   invited_by, is_legacy, expires_at, date_joined
-            FROM invites
-            WHERE activation_code = %s
-            """,
-            (activation_code,),
-        )
-        return cur.fetchone()
-
-
-@tracer.capture_method(name="MarkInviteUsed")
-def mark_invite_used(conn, invite_id: str, member_id: str):
-    with conn.cursor() as cur:
-        cur.execute(
-            "UPDATE invites SET status = %s, member_id = %s WHERE id = %s",
-            (InviteStatus.USED.value, member_id, invite_id),
-        )
-
-
-@tracer.capture_method(name="MarkInviteExpired")
-def mark_invite_expired(conn, invite_id: str):
-    with conn.cursor() as cur:
-        cur.execute(
-            "UPDATE invites SET status = %s WHERE id = %s",
-            (InviteStatus.EXPIRED.value, invite_id),
-        )
-
-
-@tracer.capture_method(name="SendInviteSMS")
 def publish_invite_sms(mobile: str, activation_code: str):
     sns = boto3.client("sns")
     response = sns.publish(
@@ -102,14 +26,58 @@ def publish_invite_sms(mobile: str, activation_code: str):
             }
         },
     )
-
     status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
     if status_code != 200:
-        logger.error(
-            "SMS may not have been sent successfully", extra={"sns_response": response}
-        )
+        logger.error("SMS may not have been sent successfully", extra={"sns_response": response})
         raise RuntimeError(f"SNS publish failed with status {status_code}")
 
 
-def generate_activation_code() -> str:
-    return uuid.uuid4().hex[:8].upper()
+def send_invite(uow, invite_request, cognito_sub: str) -> dict:
+    member = uow.members.get_by_cognito_sub(cognito_sub)
+    if not member:
+        return {"statusCode": 403, "body": json.dumps({"error": "Member not found"})}
+
+    if invite_request.is_legacy and member["member_role"] not in ("executive", "admin"):
+        return {"statusCode": 403, "body": json.dumps({"error": "Only executives and admins can send legacy invites"})}
+
+    if invite_request.is_legacy and not invite_request.date_joined:
+        return {"statusCode": 400, "body": json.dumps({"error": "date_joined is required for legacy invites"})}
+
+    if uow.members.mobile_exists(invite_request.mobile):
+        return {"statusCode": 409, "body": json.dumps({"error": "This mobile number is already registered as a member"})}
+
+    if uow.invites.pending_exists(invite_request.mobile):
+        return {"statusCode": 409, "body": json.dumps({"error": "A pending invite already exists for this mobile number"})}
+
+    activation_code = generate_activation_code()
+    uow.invites.insert(invite_request, activation_code, str(member["id"]))
+    publish_invite_sms(invite_request.mobile, activation_code)
+
+    return {"statusCode": 200, "body": json.dumps({"message": "Invite sent."})}
+
+
+def validate_invite(uow, activation_code: str) -> dict:
+    invite = uow.invites.get_by_activation_code(activation_code)
+
+    if not invite:
+        return {"statusCode": 404, "body": json.dumps({"error": "Invalid activation code"})}
+
+    if invite["status"] == InviteStatus.USED.value:
+        return {"statusCode": 400, "body": json.dumps({"error": "Invite has already been used"})}
+
+    if invite["status"] == InviteStatus.EXPIRED.value:
+        return {"statusCode": 400, "body": json.dumps({"error": "Invite has expired"})}
+
+    if invite["expires_at"] and invite["expires_at"] < datetime.now(timezone.utc).replace(tzinfo=None):
+        uow.invites.mark_expired(str(invite["id"]))
+        return {"statusCode": 400, "body": json.dumps({"error": "Invite has expired"})}
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "relationship": invite["relationship"],
+            "mobile": invite["mobile"],
+            "first_name": invite["first_name"],
+            "last_name": invite["last_name"],
+        }),
+    }

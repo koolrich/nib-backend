@@ -26,45 +26,69 @@ PLEDGE = {
 }
 
 
+def _make_uow(caller=EXEC_MEMBER, event=UPCOMING_EVENT, items=None, pledges=None,
+              contributions=None, existing_pledge=None, quantity_remaining=7.0,
+              pledge_row=None, has_contribution=False, has_items_or_pledges=False):
+    uow = MagicMock()
+    uow.__enter__ = MagicMock(return_value=uow)
+    uow.__exit__ = MagicMock(return_value=False)
+    uow.members.get_by_cognito_sub.return_value = caller
+    uow.members.get_by_id.return_value = {"id": "member-uuid"}
+    uow.events.get_by_id.return_value = event
+    uow.events.get_all.return_value = [event] if event else []
+    uow.events.get_items.return_value = items or [EVENT_ITEM]
+    uow.events.get_pledges.return_value = pledges or []
+    uow.events.get_contributions.return_value = contributions or []
+    uow.events.insert.return_value = event
+    uow.events.update.return_value = event
+    uow.events.insert_items.return_value = [EVENT_ITEM]
+    uow.events.insert_contribution.return_value = {"id": "contrib-uuid", "amount": 50.0}
+    uow.events.has_items_or_pledges.return_value = has_items_or_pledges
+    uow.pledges.get_item_by_id.return_value = EVENT_ITEM
+    uow.pledges.get_existing.return_value = existing_pledge
+    uow.pledges.get_quantity_remaining.return_value = quantity_remaining
+    uow.pledges.insert.return_value = PLEDGE
+    uow.pledges.get_by_id.return_value = pledge_row or PLEDGE
+    uow.pledges.get_by_id_for_contribution.return_value = pledge_row or PLEDGE
+    uow.pledges.update_quantity.return_value = PLEDGE
+    uow.pledges.cancel.return_value = {"id": "pledge-uuid", "status": "cancelled", "updated_at": "2026-04-05"}
+    uow.pledges.has_contribution.return_value = has_contribution
+    return uow
+
+
 def _event(route_key, body=None, path_params=None, cognito_sub="exec-sub"):
-    ev = generate_api_gw_event(body, cognito_sub=cognito_sub)
-    ev["routeKey"] = route_key
-    if path_params:
-        ev["pathParameters"] = path_params
-    return ev
+    return generate_api_gw_event(body, cognito_sub=cognito_sub, route_key=route_key,
+                                 path_params=path_params)
 
 
 # ── POST /events ──────────────────────────────────────────────────────────────
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.events.events.insert_event", return_value=UPCOMING_EVENT)
-def test_create_event_returns_201(mock_insert, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_create_event_returns_201(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
     result = events.handler(_event("POST /events", {"title": "T", "date": "2026-08-12", "type": "pledge"}), generate_context())
     assert result["statusCode"] == 201
-    mock_insert.assert_called_once()
 
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=REGULAR_MEMBER)
-def test_create_event_requires_executive(mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_create_event_requires_executive(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
     result = events.handler(_event("POST /events", {"title": "T", "date": "2026-08-12", "type": "pledge"}), generate_context())
     assert result["statusCode"] == 403
 
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=EXEC_MEMBER)
-def test_create_event_invalid_type_returns_422(mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_create_event_invalid_type_returns_422(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
     result = events.handler(_event("POST /events", {"title": "T", "date": "2026-08-12", "type": "invalid"}), generate_context())
     assert result["statusCode"] == 422
 
 
 # ── GET /events ───────────────────────────────────────────────────────────────
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.events.events.get_events", return_value=[UPCOMING_EVENT])
-def test_list_events_returns_200(mock_get, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_list_events_returns_200(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
     result = events.handler(_event("GET /events"), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
@@ -73,43 +97,35 @@ def test_list_events_returns_200(mock_get, mock_ctx, mock_conn):
 
 # ── GET /events/{id} ──────────────────────────────────────────────────────────
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=UPCOMING_EVENT)
-@patch("functions.events.events.get_event_items", return_value=[EVENT_ITEM])
-@patch("functions.events.events.get_event_pledges", return_value=[])
-@patch("functions.events.events.get_event_contributions", return_value=[])
-def test_get_event_returns_200(mock_contrib, mock_pledges, mock_items, mock_event, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_get_event_returns_200(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
     result = events.handler(_event("GET /events/{id}", path_params={"id": "event-uuid"}), generate_context())
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
     assert "items" in body
 
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=None)
-def test_get_event_not_found_returns_404(mock_event, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_get_event_not_found_returns_404(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(event=None)
     result = events.handler(_event("GET /events/{id}", path_params={"id": "bad-uuid"}), generate_context())
     assert result["statusCode"] == 404
 
 
 # ── POST /events/{id}/items ───────────────────────────────────────────────────
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=EXEC_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=UPCOMING_EVENT)
-@patch("functions.events.events.insert_event_items", return_value=[EVENT_ITEM])
-def test_add_items_returns_201(mock_insert, mock_event, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_add_items_returns_201(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
     body = {"items": [{"name": "Coke", "quantity_needed": 10, "unit": "crates"}]}
     result = events.handler(_event("POST /events/{id}/items", body, {"id": "event-uuid"}), generate_context())
     assert result["statusCode"] == 201
 
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=REGULAR_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=UPCOMING_EVENT)
-def test_add_items_requires_executive(mock_event, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_add_items_requires_executive(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
     body = {"items": [{"name": "Coke", "quantity_needed": 10, "unit": "crates"}]}
     result = events.handler(_event("POST /events/{id}/items", body, {"id": "event-uuid"}, cognito_sub="member-sub"), generate_context())
     assert result["statusCode"] == 403
@@ -117,37 +133,25 @@ def test_add_items_requires_executive(mock_event, mock_ctx, mock_conn):
 
 # ── POST /events/{id}/pledges ─────────────────────────────────────────────────
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=REGULAR_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=UPCOMING_EVENT)
-@patch("functions.events.events.get_event_item_by_id", return_value=EVENT_ITEM)
-@patch("functions.events.events.get_existing_pledge", return_value=None)
-@patch("functions.events.events.get_quantity_remaining", return_value=7.0)
-@patch("functions.events.events.insert_pledge", return_value=PLEDGE)
-def test_create_pledge_returns_201(mock_insert, mock_remaining, mock_existing, mock_item, mock_event, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_create_pledge_returns_201(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
     body = {"event_item_id": "item-uuid", "quantity": 5}
     result = events.handler(_event("POST /events/{id}/pledges", body, {"id": "event-uuid"}, cognito_sub="member-sub"), generate_context())
     assert result["statusCode"] == 201
 
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=REGULAR_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=UPCOMING_EVENT)
-@patch("functions.events.events.get_event_item_by_id", return_value=EVENT_ITEM)
-@patch("functions.events.events.get_existing_pledge", return_value=PLEDGE)
-def test_create_pledge_duplicate_returns_409(mock_existing, mock_item, mock_event, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_create_pledge_duplicate_returns_409(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER, existing_pledge=PLEDGE)
     body = {"event_item_id": "item-uuid", "quantity": 5}
     result = events.handler(_event("POST /events/{id}/pledges", body, {"id": "event-uuid"}, cognito_sub="member-sub"), generate_context())
     assert result["statusCode"] == 409
 
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=REGULAR_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=UPCOMING_EVENT)
-@patch("functions.events.events.get_event_item_by_id", return_value=EVENT_ITEM)
-@patch("functions.events.events.get_existing_pledge", return_value=None)
-@patch("functions.events.events.get_quantity_remaining", return_value=3.0)
-def test_create_pledge_exceeds_remaining_returns_422(mock_remaining, mock_existing, mock_item, mock_event, mock_ctx, mock_conn):
+@patch("functions.events.events.EventUoW")
+def test_create_pledge_exceeds_remaining_returns_422(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER, quantity_remaining=3.0)
     body = {"event_item_id": "item-uuid", "quantity": 5}
     result = events.handler(_event("POST /events/{id}/pledges", body, {"id": "event-uuid"}, cognito_sub="member-sub"), generate_context())
     assert result["statusCode"] == 422
@@ -155,22 +159,19 @@ def test_create_pledge_exceeds_remaining_returns_422(mock_remaining, mock_existi
 
 # ── DELETE /events/{id}/pledges/{pledgeId} ────────────────────────────────────
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=REGULAR_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=UPCOMING_EVENT)
-@patch("functions.events.events.get_pledge_by_id", return_value=PLEDGE)
-@patch("functions.events.events.pledge_has_contribution", return_value=False)
-@patch("functions.events.events.cancel_pledge", return_value={"id": "pledge-uuid", "status": "cancelled", "updated_at": "2026-04-05"})
-def test_cancel_pledge_returns_200(mock_cancel, mock_contrib, mock_pledge, mock_event, mock_ctx, mock_conn):
-    result = events.handler(_event("DELETE /events/{id}/pledges/{pledgeId}", path_params={"id": "event-uuid", "pledgeId": "pledge-uuid"}, cognito_sub="member-sub"), generate_context())
+@patch("functions.events.events.EventUoW")
+def test_cancel_pledge_returns_200(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER)
+    result = events.handler(_event("DELETE /events/{id}/pledges/{pledgeId}",
+                                   path_params={"id": "event-uuid", "pledgeId": "pledge-uuid"},
+                                   cognito_sub="member-sub"), generate_context())
     assert result["statusCode"] == 200
 
 
-@patch("functions.events.events.get_connection")
-@patch("functions.events.events.get_member_context", return_value=REGULAR_MEMBER)
-@patch("functions.events.events.get_event_by_id", return_value=UPCOMING_EVENT)
-@patch("functions.events.events.get_pledge_by_id", return_value=PLEDGE)
-@patch("functions.events.events.pledge_has_contribution", return_value=True)
-def test_cancel_pledge_with_contribution_returns_422(mock_contrib, mock_pledge, mock_event, mock_ctx, mock_conn):
-    result = events.handler(_event("DELETE /events/{id}/pledges/{pledgeId}", path_params={"id": "event-uuid", "pledgeId": "pledge-uuid"}, cognito_sub="member-sub"), generate_context())
+@patch("functions.events.events.EventUoW")
+def test_cancel_pledge_with_contribution_returns_422(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER, has_contribution=True)
+    result = events.handler(_event("DELETE /events/{id}/pledges/{pledgeId}",
+                                   path_params={"id": "event-uuid", "pledgeId": "pledge-uuid"},
+                                   cognito_sub="member-sub"), generate_context())
     assert result["statusCode"] == 422

@@ -17,7 +17,7 @@ AUTH_RESULT = {
 }
 
 
-@patch("functions.login.login.initiate_auth", return_value=AUTH_RESULT)
+@patch("shared.services.login_service.initiate_auth", return_value=AUTH_RESULT)
 def test_login_returns_200_with_tokens(mock_auth):
     result = login.handler(generate_api_gw_event(VALID_BODY), generate_context())
 
@@ -30,7 +30,7 @@ def test_login_returns_200_with_tokens(mock_auth):
     mock_auth.assert_called_once_with("+447123456789", "SecurePass1")
 
 
-@patch("functions.login.login.initiate_auth", side_effect=ClientError(
+@patch("shared.services.login_service.initiate_auth", side_effect=ClientError(
     {"Error": {"Code": "NotAuthorizedException", "Message": "Incorrect username or password"}}, "AdminInitiateAuth"
 ))
 def test_login_wrong_password_returns_401(mock_auth):
@@ -40,7 +40,7 @@ def test_login_wrong_password_returns_401(mock_auth):
     assert "Invalid phone number or password" in json.loads(result["body"])["error"]
 
 
-@patch("functions.login.login.initiate_auth", side_effect=ClientError(
+@patch("shared.services.login_service.initiate_auth", side_effect=ClientError(
     {"Error": {"Code": "UserNotFoundException", "Message": "User does not exist"}}, "AdminInitiateAuth"
 ))
 def test_login_unknown_user_returns_401(mock_auth):

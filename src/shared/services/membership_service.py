@@ -1,118 +1,63 @@
-from datetime import date
-from dateutil.relativedelta import relativedelta
+import json
 
-from shared.instrumentation.tracer import tracer
-from shared.reference_data.invoice_status import InvoiceStatus
-from shared.reference_data.membership_period_status import MembershipPeriodStatus
 from aws_lambda_powertools import Logger
+from shared.reference_data.membership_period_status import MembershipPeriodStatus
 
 logger = Logger()
 
-
-@tracer.capture_method(name="GetCurrentFee")
-def get_current_fee(conn, membership_type: str):
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT annual_fee, due_days FROM membership_fees
-            WHERE membership_type = %s AND effective_from <= %s
-            ORDER BY effective_from DESC
-            LIMIT 1
-            """,
-            (membership_type, date.today()),
-        )
-        row = cur.fetchone()
-        if not row:
-            raise RuntimeError(f"No fee configured for membership type: {membership_type}")
-        return row
+VALID_PERIOD_STATUSES = {s.value for s in MembershipPeriodStatus}
 
 
-@tracer.capture_method(name="InsertMembership")
-def insert_membership(conn, membership_type: str, primary_member_id: str) -> str:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO memberships (membership_type, primary_member_id)
-            VALUES (%s, %s)
-            RETURNING id
-            """,
-            (membership_type, primary_member_id),
-        )
-        row = cur.fetchone()
-        return str(row["id"])
+def _response(status_code: int, body: dict) -> dict:
+    return {"statusCode": status_code, "body": json.dumps(body, default=str)}
 
 
-@tracer.capture_method(name="GetMembershipPeriod")
-def get_membership_period(conn, period_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, membership_id, start_date, end_date, status, created_at
-            FROM membership_periods WHERE id = %s
-            """,
-            (period_id,),
-        )
-        return cur.fetchone()
+def _require_executive(member: dict) -> dict | None:
+    if member["member_role"] not in ("executive", "admin"):
+        return _response(403, {"error": "Executive access required"})
+    return None
 
 
-@tracer.capture_method(name="UpdateMembershipPeriod")
-def update_membership_period(conn, period_id: str, fields: dict) -> dict | None:
-    allowed = {"start_date", "end_date", "status"}
-    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
-    if not updates:
-        return get_membership_period(conn, period_id)
+def create_membership_period(uow, caller: dict, target_member_id: str, body: dict) -> dict:
+    err = _require_executive(caller)
+    if err:
+        return err
 
-    set_clause = ", ".join(f"{k} = %s" for k in updates)
-    values = list(updates.values()) + [period_id]
+    target = uow.members.get_with_membership_type(target_member_id)
+    if not target:
+        return _response(404, {"error": "Member not found"})
 
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            UPDATE membership_periods
-            SET {set_clause}, updated_at = NOW()
-            WHERE id = %s
-            RETURNING id, membership_id, start_date, end_date, status, created_at
-            """,
-            values,
-        )
-        return cur.fetchone()
+    if not target["is_legacy"]:
+        return _response(422, {"error": "Membership periods are auto-created for non-legacy members"})
 
+    if not target["membership_id"]:
+        return _response(422, {"error": "Member has no membership record"})
 
-@tracer.capture_method(name="InsertMembershipPeriod")
-def insert_membership_period(conn, membership_id: str, start_date=None, end_date=None) -> dict:
-    today = date.today()
-    start = start_date or today
-    end = end_date or (today + relativedelta(years=1))
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO membership_periods (membership_id, start_date, end_date, status)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id, membership_id, start_date, end_date, status, created_at
-            """,
-            (membership_id, start, end, MembershipPeriodStatus.ACTIVE.value),
-        )
-        return cur.fetchone()
+    start_date = body.get("period_start")
+    end_date = body.get("period_end")
+    if not start_date or not end_date:
+        return _response(422, {"error": "period_start and period_end are required"})
+
+    period = uow.periods.insert(str(target["membership_id"]), start_date, end_date)
+    invoice = uow.invoices.insert(str(period["id"]), target["membership_type"])
+
+    return _response(201, {
+        "membership_period": dict(period),
+        "invoice": dict(invoice),
+    })
 
 
-@tracer.capture_method(name="GenerateInvoiceNumber")
-def generate_invoice_number(conn) -> str:
-    with conn.cursor() as cur:
-        cur.execute("SELECT 'NIB-' || LPAD(nextval('invoice_number_seq')::TEXT, 4, '0') AS invoice_number")
-        row = cur.fetchone()
-        return row["invoice_number"]
+def patch_membership_period(uow, caller: dict, period_id: str, body: dict) -> dict:
+    err = _require_executive(caller)
+    if err:
+        return err
 
+    period = uow.periods.get_by_id(period_id)
+    if not period:
+        return _response(404, {"error": "Membership period not found"})
 
-@tracer.capture_method(name="InsertInvoice")
-def insert_invoice(conn, membership_period_id: str, invoice_number: str, amount_due, due_date):
-    today = date.today()
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO invoices (
-                membership_period_id, invoice_number, issue_date, due_date,
-                amount_due, status
-            ) VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            (membership_period_id, invoice_number, today, due_date, amount_due, InvoiceStatus.UNPAID.value),
-        )
+    if "status" in body and body["status"] not in VALID_PERIOD_STATUSES:
+        return _response(422, {"error": f"status must be one of: {', '.join(VALID_PERIOD_STATUSES)}"})
+
+    updated = uow.periods.update(period_id, body)
+    return _response(200, dict(updated))

@@ -1,144 +1,43 @@
-from datetime import date
+import json
 
-from shared.instrumentation.tracer import tracer
-from shared.models.register_request import RegisterRequest
 from aws_lambda_powertools import Logger
 
 logger = Logger()
 
 
-@tracer.capture_method(name="GetMemberByCognitoSub")
-def get_member_by_cognito_sub(conn, cognito_sub: str):
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT id FROM members WHERE cognito_user_id = %s",
-            (cognito_sub,),
-        )
-        return cur.fetchone()
+def get_my_pledges(uow, member_id: str) -> dict:
+    rows = uow.pledges.get_by_member(member_id)
+    pledges = []
+    for row in rows:
+        r = dict(row)
+        contribution = None
+        if r.get("contribution_amount") is not None:
+            contribution = {
+                "amount": r["contribution_amount"],
+                "received_at": r["contribution_received_at"],
+            }
+        r.pop("contribution_amount", None)
+        r.pop("contribution_received_at", None)
+        r["contribution"] = contribution
+        pledges.append(r)
+    return {"statusCode": 200, "body": json.dumps({"pledges": pledges}, default=str)}
 
 
-@tracer.capture_method(name="GetMemberContext")
-def get_member_context(conn, cognito_sub: str) -> dict | None:
-    """Returns {id, role} for the calling member, or None if not found."""
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT id, member_role FROM members WHERE cognito_user_id = %s",
-            (cognito_sub,),
-        )
-        return cur.fetchone()
+def patch_member(uow, caller: dict, target_member_id: str, body: dict) -> dict:
+    caller_id = str(caller["id"])
+    caller_role = caller["member_role"]
+    is_privileged = caller_role in ("executive", "admin")
 
+    if caller_id != target_member_id and not is_privileged:
+        return {"statusCode": 403, "body": json.dumps({"error": "You can only update your own profile"})}
 
-@tracer.capture_method(name="InsertMember")
-def insert_member(conn, request: RegisterRequest, cognito_sub: str, invited_by: str, is_legacy: bool, date_joined=None) -> str:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO members (
-                cognito_user_id, mobile, email, first_name, last_name,
-                address_line1, address_line2, town, post_code,
-                state_of_origin, lga, birthday_day, birthday_month,
-                relationship_status, emergency_contact_name, emergency_contact_phone,
-                member_role, status, is_legacy, date_joined
-            ) VALUES (
-                %s, %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s,
-                %s, %s, %s, %s
-            )
-            RETURNING id
-            """,
-            (
-                cognito_sub,
-                request.mobile,
-                request.email,
-                request.first_name,
-                request.last_name,
-                request.address_line1,
-                request.address_line2,
-                request.town,
-                request.post_code,
-                request.state_of_origin,
-                request.lga,
-                request.birthday_day,
-                request.birthday_month,
-                request.relationship_status,
-                request.emergency_contact_name,
-                request.emergency_contact_phone,
-                "member",
-                "active",
-                is_legacy,
-                date_joined if date_joined else date.today(),
-            ),
-        )
-        row = cur.fetchone()
-        return str(row["id"])
+    target = uow.members.get_by_id(target_member_id)
+    if not target:
+        return {"statusCode": 404, "body": json.dumps({"error": "Member not found"})}
 
+    restricted = {"member_role", "status"}
+    if any(k in body for k in restricted) and not is_privileged:
+        return {"statusCode": 403, "body": json.dumps({"error": "Only executives and admins can update role or status"})}
 
-@tracer.capture_method(name="GetMemberMembershipId")
-def get_member_membership_id(conn, member_id: str) -> str:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT membership_id FROM members WHERE id = %s",
-            (member_id,),
-        )
-        row = cur.fetchone()
-        return str(row["membership_id"]) if row else None
-
-
-@tracer.capture_method(name="GetMemberById")
-def get_member_by_id(conn, member_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, first_name, last_name, email, mobile, address_line1, address_line2,
-                   town, post_code, state_of_origin, lga, birthday_day, birthday_month,
-                   relationship_status, emergency_contact_name, emergency_contact_phone,
-                   member_role, status, is_legacy, date_joined
-            FROM members WHERE id = %s
-            """,
-            (member_id,),
-        )
-        return cur.fetchone()
-
-
-@tracer.capture_method(name="UpdateMember")
-def update_member(conn, member_id: str, fields: dict) -> dict | None:
-    profile_fields = {
-        "first_name", "last_name", "email", "mobile", "address_line1", "address_line2",
-        "town", "post_code", "state_of_origin", "lga", "birthday_day", "birthday_month",
-        "relationship_status", "emergency_contact_name", "emergency_contact_phone",
-    }
-    restricted_fields = {"member_role", "status"}
-    allowed = profile_fields | restricted_fields
-
-    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
-    if not updates:
-        return get_member_by_id(conn, member_id)
-
-    set_clause = ", ".join(f"{k} = %s" for k in updates)
-    values = list(updates.values()) + [member_id]
-
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            UPDATE members
-            SET {set_clause}, updated_at = NOW()
-            WHERE id = %s
-            RETURNING id, first_name, last_name, email, mobile, address_line1, address_line2,
-                      town, post_code, state_of_origin, lga, birthday_day, birthday_month,
-                      relationship_status, emergency_contact_name, emergency_contact_phone,
-                      member_role, status, updated_at
-            """,
-            values,
-        )
-        return cur.fetchone()
-
-
-@tracer.capture_method(name="UpdateMemberMembershipId")
-def update_member_membership_id(conn, member_id: str, membership_id: str):
-    with conn.cursor() as cur:
-        cur.execute(
-            "UPDATE members SET membership_id = %s WHERE id = %s",
-            (membership_id, member_id),
-        )
+    row = uow.members.update(target_member_id, body)
+    return {"statusCode": 200, "body": json.dumps(dict(row), default=str)}

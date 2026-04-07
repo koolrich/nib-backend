@@ -1,205 +1,220 @@
+import json
+
 from aws_lambda_powertools import Logger
-from shared.instrumentation.tracer import tracer
 
 logger = Logger()
 
-
-@tracer.capture_method(name="InsertEvent")
-def insert_event(conn, title: str, date: str, type: str, description: str | None, created_by: str) -> dict:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO events (title, date, type, status, description, created_by)
-            VALUES (%s, %s, %s, 'upcoming', %s, %s)
-            RETURNING id, title, date, type, status, description, created_by, created_at
-            """,
-            (title, date, type, description, created_by),
-        )
-        return cur.fetchone()
+VALID_EVENT_TYPES = {"pledge", "contribution"}
+VALID_EVENT_STATUSES = {"upcoming", "completed"}
 
 
-@tracer.capture_method(name="GetEvents")
-def get_events(conn) -> list:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                e.id, e.title, e.date, e.type, e.status, e.description,
-                e.created_by, e.created_at,
-                COALESCE(SUM(ec.amount), 0) AS total_contributions,
-                COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'pledged') AS total_pledges
-            FROM events e
-            LEFT JOIN event_contributions ec ON ec.event_id = e.id
-            LEFT JOIN pledges p ON p.event_id = e.id
-            GROUP BY e.id
-            ORDER BY e.date DESC
-            """,
-        )
-        return cur.fetchall()
+def _response(status_code: int, body: dict) -> dict:
+    return {"statusCode": status_code, "body": json.dumps(body, default=str)}
 
 
-@tracer.capture_method(name="GetEventById")
-def get_event_by_id(conn, event_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                e.id, e.title, e.date, e.type, e.status, e.description,
-                e.created_by, e.created_at,
-                COALESCE(SUM(ec.amount), 0) AS total_contributions,
-                COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'pledged') AS total_pledges
-            FROM events e
-            LEFT JOIN event_contributions ec ON ec.event_id = e.id
-            LEFT JOIN pledges p ON p.event_id = e.id
-            WHERE e.id = %s
-            GROUP BY e.id
-            """,
-            (event_id,),
-        )
-        return cur.fetchone()
+def _require_executive(member: dict) -> dict | None:
+    if member["member_role"] not in ("executive", "admin"):
+        return _response(403, {"error": "Executive access required"})
+    return None
 
 
-@tracer.capture_method(name="GetEventItems")
-def get_event_items(conn, event_id: str) -> list:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                ei.id, ei.event_id, ei.name, ei.unit, ei.quantity_needed,
-                COALESCE(SUM(p.quantity) FILTER (WHERE p.status = 'pledged'), 0) AS quantity_pledged,
-                ei.quantity_needed - COALESCE(SUM(p.quantity) FILTER (WHERE p.status = 'pledged'), 0) AS quantity_remaining
-            FROM event_items ei
-            LEFT JOIN pledges p ON p.event_item_id = ei.id
-            WHERE ei.event_id = %s
-            GROUP BY ei.id
-            ORDER BY ei.created_at
-            """,
-            (event_id,),
-        )
-        rows = cur.fetchall()
-        result = []
-        for row in rows:
-            r = dict(row)
-            r["is_available"] = r["quantity_remaining"] > 0
-            result.append(r)
-        return result
+def create_event(uow, member: dict, body: dict) -> dict:
+    err = _require_executive(member)
+    if err:
+        return err
+
+    title = body.get("title")
+    date = body.get("date")
+    type_ = body.get("type")
+    description = body.get("description")
+
+    if not title or not date or not type_:
+        return _response(422, {"error": "title, date and type are required"})
+    if type_ not in VALID_EVENT_TYPES:
+        return _response(422, {"error": f"type must be one of: {', '.join(VALID_EVENT_TYPES)}"})
+
+    row = uow.events.insert(title, date, type_, description, str(member["id"]))
+    return _response(201, dict(row))
 
 
-@tracer.capture_method(name="GetEventPledges")
-def get_event_pledges(conn, event_id: str) -> list:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                p.id, p.event_id, p.member_id,
-                m.first_name || ' ' || m.last_name AS member_name,
-                p.event_item_id, ei.name AS item_name,
-                p.quantity, p.status, p.created_at
-            FROM pledges p
-            JOIN members m ON m.id = p.member_id
-            JOIN event_items ei ON ei.id = p.event_item_id
-            WHERE p.event_id = %s
-            ORDER BY p.created_at
-            """,
-            (event_id,),
-        )
-        return cur.fetchall()
+def list_events(uow) -> dict:
+    rows = uow.events.get_all()
+    return _response(200, {"events": [dict(r) for r in rows]})
 
 
-@tracer.capture_method(name="GetEventContributions")
-def get_event_contributions(conn, event_id: str) -> list:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                ec.id, ec.event_id, ec.member_id,
-                COALESCE(m.first_name || ' ' || m.last_name, 'Anonymous') AS member_name,
-                ec.pledge_id, ec.amount, ec.received_at, ec.note
-            FROM event_contributions ec
-            LEFT JOIN members m ON m.id = ec.member_id
-            WHERE ec.event_id = %s
-            ORDER BY ec.received_at
-            """,
-            (event_id,),
-        )
-        return cur.fetchall()
+def get_event(uow, event_id: str) -> dict:
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+
+    result = dict(event)
+    if event["type"] == "pledge":
+        result["items"] = uow.events.get_items(event_id)
+    result["pledges"] = [dict(p) for p in uow.events.get_pledges(event_id)]
+    result["contributions"] = [dict(c) for c in uow.events.get_contributions(event_id)]
+    return _response(200, result)
 
 
-@tracer.capture_method(name="UpdateEvent")
-def update_event(conn, event_id: str, fields: dict) -> dict | None:
-    allowed = {"title", "date", "type", "status", "description"}
-    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
-    if not updates:
-        return get_event_by_id(conn, event_id)
+def patch_event(uow, member: dict, event_id: str, body: dict) -> dict:
+    err = _require_executive(member)
+    if err:
+        return err
 
-    set_clause = ", ".join(f"{k} = %s" for k in updates)
-    values = list(updates.values()) + [event_id]
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot edit a completed event"})
 
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            UPDATE events
-            SET {set_clause}, updated_at = NOW()
-            WHERE id = %s
-            RETURNING id, title, date, type, status, description, updated_at
-            """,
-            values,
-        )
-        return cur.fetchone()
+    if "type" in body and body["type"] != event["type"]:
+        if uow.events.has_items_or_pledges(event_id):
+            return _response(422, {"error": "Cannot change event type after items or pledges have been added"})
 
+    if "status" in body and body["status"] not in VALID_EVENT_STATUSES:
+        return _response(422, {"error": f"status must be one of: {', '.join(VALID_EVENT_STATUSES)}"})
 
-@tracer.capture_method(name="EventHasItemsOrPledges")
-def event_has_items_or_pledges(conn, event_id: str) -> bool:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT EXISTS (
-                SELECT 1 FROM event_items WHERE event_id = %s
-                UNION ALL
-                SELECT 1 FROM pledges WHERE event_id = %s
-            )
-            """,
-            (event_id, event_id),
-        )
-        row = cur.fetchone()
-        return row[0] if row else False
+    if "type" in body and body["type"] not in VALID_EVENT_TYPES:
+        return _response(422, {"error": f"type must be one of: {', '.join(VALID_EVENT_TYPES)}"})
+
+    row = uow.events.update(event_id, body)
+    return _response(200, dict(row))
 
 
-@tracer.capture_method(name="InsertEventItems")
-def insert_event_items(conn, event_id: str, items: list) -> list:
-    results = []
-    with conn.cursor() as cur:
-        for item in items:
-            cur.execute(
-                """
-                INSERT INTO event_items (event_id, name, quantity_needed, unit)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id, event_id, name, quantity_needed, unit, created_at
-                """,
-                (event_id, item["name"], item["quantity_needed"], item["unit"]),
-            )
-            results.append(cur.fetchone())
-    return results
+def add_items(uow, member: dict, event_id: str, body: dict) -> dict:
+    err = _require_executive(member)
+    if err:
+        return err
+
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["type"] != "pledge":
+        return _response(422, {"error": "Items can only be added to pledge events"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot add items to a completed event"})
+
+    items = body.get("items", [])
+    if not items:
+        return _response(422, {"error": "items array is required and must not be empty"})
+    for item in items:
+        if not item.get("name") or not item.get("quantity_needed") or not item.get("unit"):
+            return _response(422, {"error": "Each item must have name, quantity_needed and unit"})
+
+    rows = uow.events.insert_items(event_id, items)
+    return _response(201, {"items": [dict(r) for r in rows]})
 
 
-@tracer.capture_method(name="InsertContribution")
-def insert_contribution(conn, event_id: str, member_id: str | None, pledge_id: str | None,
-                        amount: float, recorded_by: str, received_at: str, note: str | None) -> dict:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO event_contributions
-                (event_id, member_id, pledge_id, amount, recorded_by, received_at, note)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, event_id, member_id, pledge_id, amount, recorded_by, received_at, note, created_at
-            """,
-            (event_id, member_id, pledge_id, amount, recorded_by, received_at, note),
-        )
-        return cur.fetchone()
+def create_pledge(uow, member: dict, event_id: str, body: dict) -> dict:
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["type"] != "pledge":
+        return _response(422, {"error": "This event does not accept pledges"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot pledge on a completed event"})
+
+    event_item_id = body.get("event_item_id")
+    quantity = body.get("quantity")
+    if not event_item_id or not quantity:
+        return _response(422, {"error": "event_item_id and quantity are required"})
+
+    item = uow.pledges.get_item_by_id(event_item_id, event_id)
+    if not item:
+        return _response(404, {"error": "Event item not found"})
+
+    member_id = str(member["id"])
+    if uow.pledges.get_existing(member_id, event_item_id):
+        return _response(409, {"error": "You have an existing pledge for this item, please edit it instead"})
+
+    remaining = uow.pledges.get_quantity_remaining(event_item_id)
+    if remaining <= 0:
+        return _response(422, {"error": "This item has been fully pledged"})
+    if quantity > remaining:
+        return _response(422, {"error": f"Only {remaining} units remaining"})
+
+    row = uow.pledges.insert(event_id, member_id, event_item_id, quantity)
+    return _response(201, dict(row))
 
 
-@tracer.capture_method(name="GetMemberById")
-def get_member_by_id(conn, member_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute("SELECT id FROM members WHERE id = %s", (member_id,))
-        return cur.fetchone()
+def update_pledge(uow, member: dict, event_id: str, pledge_id: str, body: dict) -> dict:
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot edit a pledge on a completed event"})
+
+    pledge = uow.pledges.get_by_id(pledge_id, event_id)
+    if not pledge:
+        return _response(404, {"error": "Pledge not found"})
+    if str(pledge["member_id"]) != str(member["id"]):
+        return _response(403, {"error": "This pledge does not belong to you"})
+    if pledge["status"] == "cancelled":
+        return _response(422, {"error": "Cannot edit a cancelled pledge"})
+
+    quantity = body.get("quantity")
+    if not quantity:
+        return _response(422, {"error": "quantity is required"})
+
+    remaining = uow.pledges.get_quantity_remaining(str(pledge["event_item_id"]), str(member["id"]))
+    if quantity > remaining:
+        return _response(422, {"error": f"Only {remaining} units remaining"})
+
+    row = uow.pledges.update_quantity(pledge_id, quantity)
+    return _response(200, dict(row))
+
+
+def cancel_pledge(uow, member: dict, event_id: str, pledge_id: str) -> dict:
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot cancel a pledge on a completed event"})
+
+    pledge = uow.pledges.get_by_id(pledge_id, event_id)
+    if not pledge:
+        return _response(404, {"error": "Pledge not found"})
+    if str(pledge["member_id"]) != str(member["id"]):
+        return _response(403, {"error": "This pledge does not belong to you"})
+    if pledge["status"] == "cancelled":
+        return _response(422, {"error": "Pledge is already cancelled"})
+
+    if uow.pledges.has_contribution(pledge_id):
+        return _response(422, {"error": "Cannot cancel a pledge that has already been paid for"})
+
+    row = uow.pledges.cancel(pledge_id)
+    return _response(200, dict(row))
+
+
+def record_contribution(uow, member: dict, event_id: str, body: dict) -> dict:
+    err = _require_executive(member)
+    if err:
+        return err
+
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot record contributions on a completed event"})
+
+    amount = body.get("amount")
+    received_at = body.get("received_at")
+    if not amount or not received_at:
+        return _response(422, {"error": "amount and received_at are required"})
+
+    member_id = body.get("member_id")
+    pledge_id = body.get("pledge_id")
+    note = body.get("note")
+
+    if member_id and not uow.members.get_by_id(member_id):
+        return _response(404, {"error": "Member not found"})
+
+    if pledge_id:
+        pledge = uow.pledges.get_by_id_for_contribution(pledge_id, event_id)
+        if not pledge:
+            return _response(404, {"error": "Pledge not found"})
+        if pledge["status"] == "cancelled":
+            return _response(422, {"error": "Cannot record a contribution against a cancelled pledge"})
+
+    row = uow.events.insert_contribution(event_id, member_id, pledge_id, amount,
+                                         str(member["id"]), received_at, note)
+    return _response(201, dict(row))

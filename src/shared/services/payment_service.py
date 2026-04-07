@@ -1,136 +1,139 @@
+import json
 from decimal import Decimal
 
-from shared.instrumentation.tracer import tracer
-from shared.reference_data.invoice_status import InvoiceStatus
 from aws_lambda_powertools import Logger
+from shared.reference_data.invoice_status import InvoiceStatus
 
 logger = Logger()
 
 VALID_PAYMENT_METHODS = {"bank_transfer", "cash", "cheque", "other"}
 
 
-@tracer.capture_method(name="GetMemberWithMembershipType")
-def get_member_with_membership_type(conn, member_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT m.id, m.is_legacy, m.membership_id, ms.membership_type
-            FROM members m
-            LEFT JOIN memberships ms ON ms.id = m.membership_id
-            WHERE m.id = %s
-            """,
-            (member_id,),
-        )
-        return cur.fetchone()
+def _response(status_code: int, body: dict) -> dict:
+    return {"statusCode": status_code, "body": json.dumps(body, default=str)}
 
 
-@tracer.capture_method(name="GetActivePeriodForMembership")
-def get_active_period_for_membership(conn, membership_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, membership_id, start_date, end_date, status, created_at
-            FROM membership_periods
-            WHERE membership_id = %s AND status = 'active'
-            ORDER BY start_date DESC
-            LIMIT 1
-            """,
-            (membership_id,),
-        )
-        return cur.fetchone()
+def _require_executive(member: dict) -> dict | None:
+    if member["member_role"] not in ("executive", "admin"):
+        return _response(403, {"error": "Executive access required"})
+    return None
 
 
-@tracer.capture_method(name="GetInvoiceByPeriodId")
-def get_invoice_by_period_id(conn, period_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, membership_period_id, invoice_number, issue_date, due_date,
-                   amount_due, status, created_at
-            FROM invoices WHERE membership_period_id = %s
-            """,
-            (period_id,),
-        )
-        return cur.fetchone()
+def record_payment(uow, caller: dict, invoice_id: str, body: dict) -> dict:
+    err = _require_executive(caller)
+    if err:
+        return err
+
+    invoice = uow.invoices.get_by_id(invoice_id)
+    if not invoice:
+        return _response(404, {"error": "Invoice not found"})
+
+    if invoice["status"] == InvoiceStatus.PAID.value:
+        return _response(422, {"error": "Cannot record a payment against a fully paid invoice"})
+
+    amount = body.get("amount")
+    method = body.get("method")
+    received_at = body.get("received_at")
+    if not amount or not method or not received_at:
+        return _response(422, {"error": "amount, method and received_at are required"})
+
+    if method not in VALID_PAYMENT_METHODS:
+        return _response(422, {"error": f"method must be one of: {', '.join(VALID_PAYMENT_METHODS)}"})
+
+    total_paid = uow.payments.get_total_by_invoice(invoice_id)
+    outstanding = Decimal(str(invoice["amount_due"])) - Decimal(str(total_paid))
+    if Decimal(str(amount)) > outstanding:
+        return _response(422, {"error": f"Payment amount exceeds outstanding balance of {outstanding:.2f}"})
+
+    payment = uow.payments.insert(
+        invoice_id, amount, method,
+        body.get("reference"), str(caller["id"]), received_at, body.get("note"),
+    )
+
+    new_total = Decimal(str(total_paid)) + Decimal(str(amount))
+    new_status = (
+        InvoiceStatus.PAID.value
+        if new_total >= Decimal(str(invoice["amount_due"]))
+        else InvoiceStatus.PARTIAL.value
+    )
+    uow.invoices.update_status(invoice_id, new_status)
+
+    return _response(201, {
+        **dict(payment),
+        "invoice": {
+            "status": new_status,
+            "amount_due": float(invoice["amount_due"]),
+            "total_paid": float(new_total),
+            "outstanding": float(Decimal(str(invoice["amount_due"])) - new_total),
+        },
+    })
 
 
-@tracer.capture_method(name="GetInvoiceById")
-def get_invoice_by_id(conn, invoice_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, membership_period_id, invoice_number, issue_date, due_date,
-                   amount_due, status, created_at
-            FROM invoices WHERE id = %s
-            """,
-            (invoice_id,),
-        )
-        return cur.fetchone()
+def delete_payment(uow, caller: dict, payment_id: str) -> dict:
+    err = _require_executive(caller)
+    if err:
+        return err
+
+    payment = uow.payments.get_by_id(payment_id)
+    if not payment:
+        return _response(404, {"error": "Payment not found"})
+
+    invoice_id = str(payment["invoice_id"])
+    uow.payments.delete(payment_id)
+
+    total_paid = uow.payments.get_total_by_invoice(invoice_id)
+    invoice = uow.invoices.get_by_id(invoice_id)
+    amount_due = Decimal(str(invoice["amount_due"]))
+    total = Decimal(str(total_paid))
+
+    if total >= amount_due:
+        new_status = InvoiceStatus.PAID.value
+    elif total > 0:
+        new_status = InvoiceStatus.PARTIAL.value
+    else:
+        new_status = InvoiceStatus.UNPAID.value
+
+    uow.invoices.update_status(invoice_id, new_status)
+    return _response(200, {"message": "Payment deleted", "invoice_status": new_status})
 
 
-@tracer.capture_method(name="GetTotalPaid")
-def get_total_paid(conn, invoice_id: str) -> Decimal:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE invoice_id = %s",
-            (invoice_id,),
-        )
-        return cur.fetchone()["total"]
+def get_statement(uow, caller: dict, target_member_id: str) -> dict:
+    target = uow.members.get_by_id(target_member_id)
+    if not target:
+        return _response(404, {"error": "Member not found"})
 
+    if str(caller["id"]) != str(target["id"]) and caller["member_role"] not in ("executive", "admin"):
+        return _response(403, {"error": "Access denied"})
 
-@tracer.capture_method(name="GetPaymentsByInvoice")
-def get_payments_by_invoice(conn, invoice_id: str) -> list:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, amount, method, reference, received_by, received_at, note, created_at
-            FROM payments WHERE invoice_id = %s
-            ORDER BY received_at ASC
-            """,
-            (invoice_id,),
-        )
-        return cur.fetchall()
+    member_info = uow.members.get_with_membership_type(target_member_id)
+    membership_type = member_info["membership_type"] if member_info else None
 
+    if not target["membership_id"]:
+        return _response(200, {"member_id": target_member_id, "membership_type": membership_type,
+                               "period": None, "invoice": None, "payments": []})
 
-@tracer.capture_method(name="InsertPayment")
-def insert_payment(conn, invoice_id: str, amount, method: str, reference,
-                   received_by: str, received_at: str, note) -> dict:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO payments (invoice_id, amount, method, reference, received_by, received_at, note)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, invoice_id, amount, method, reference, received_by,
-                      received_at, note, created_at
-            """,
-            (invoice_id, amount, method, reference, received_by, received_at, note),
-        )
-        return cur.fetchone()
+    period = uow.periods.get_active_for_membership(str(target["membership_id"]))
+    if not period:
+        return _response(200, {"member_id": target_member_id, "membership_type": membership_type,
+                               "period": None, "invoice": None, "payments": []})
 
+    invoice = uow.invoices.get_by_period_id(str(period["id"]))
+    if not invoice:
+        return _response(200, {"member_id": target_member_id, "membership_type": membership_type,
+                               "period": dict(period), "invoice": None, "payments": []})
 
-@tracer.capture_method(name="GetPaymentById")
-def get_payment_by_id(conn, payment_id: str) -> dict | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, invoice_id, amount, method, reference, received_by, received_at, note, created_at
-            FROM payments WHERE id = %s
-            """,
-            (payment_id,),
-        )
-        return cur.fetchone()
+    payments = uow.payments.get_all_by_invoice(str(invoice["id"]))
+    total_paid = sum(Decimal(str(p["amount"])) for p in payments)
+    outstanding = Decimal(str(invoice["amount_due"])) - total_paid
 
-
-@tracer.capture_method(name="DeletePayment")
-def delete_payment(conn, payment_id: str):
-    with conn.cursor() as cur:
-        cur.execute("DELETE FROM payments WHERE id = %s", (payment_id,))
-
-
-@tracer.capture_method(name="UpdateInvoiceStatus")
-def update_invoice_status(conn, invoice_id: str, status: str):
-    with conn.cursor() as cur:
-        cur.execute(
-            "UPDATE invoices SET status = %s WHERE id = %s",
-            (status, invoice_id),
-        )
+    return _response(200, {
+        "member_id": target_member_id,
+        "membership_type": membership_type,
+        "period": dict(period),
+        "invoice": {
+            **dict(invoice),
+            "total_paid": float(total_paid),
+            "outstanding": float(outstanding),
+        },
+        "payments": [dict(p) for p in payments],
+    })
