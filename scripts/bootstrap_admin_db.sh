@@ -64,8 +64,18 @@ BEGIN
     VALUES (v_membership_id, DATE_TRUNC('year', CURRENT_DATE), DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year' - INTERVAL '1 day', 'active')
     RETURNING id INTO v_period_id;
 
-    INSERT INTO invoices (membership_period_id, amount_due, status)
-    VALUES (v_period_id, 60.00, 'unpaid');
+    INSERT INTO invoices (membership_period_id, invoice_number, issue_date, due_date, amount_due, status)
+    SELECT
+        v_period_id,
+        'NIB-' || LPAD(nextval('invoice_number_seq')::TEXT, 4, '0'),
+        CURRENT_DATE,
+        CURRENT_DATE + (due_days || ' days')::INTERVAL,
+        annual_fee,
+        'unpaid'
+    FROM membership_fees
+    WHERE membership_type = 'individual' AND effective_from <= CURRENT_DATE
+    ORDER BY effective_from DESC
+    LIMIT 1;
 END \$\$;
 SQL
 echo "------------------------------------------------------------"
