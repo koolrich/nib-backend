@@ -518,16 +518,6 @@ module "api_gateway" {
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
-    "POST /v1/members/{id}/membership-periods" = {
-      lambda_invoke_arn = module.lambda_function_memberships.invoke_arn
-      lambda_arn        = module.lambda_function_memberships.function_arn
-      requires_auth     = true
-    }
-    "PATCH /v1/membership-periods/{id}" = {
-      lambda_invoke_arn = module.lambda_function_memberships.invoke_arn
-      lambda_arn        = module.lambda_function_memberships.function_arn
-      requires_auth     = true
-    }
     "POST /v1/invoices/{id}/payments" = {
       lambda_invoke_arn = module.lambda_function_payments.invoke_arn
       lambda_arn        = module.lambda_function_payments.function_arn
