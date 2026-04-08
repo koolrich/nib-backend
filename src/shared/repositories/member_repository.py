@@ -24,7 +24,7 @@ class MemberRepository:
                 "SELECT EXISTS (SELECT 1 FROM members WHERE mobile = %s)",
                 (mobile,),
             )
-            return cur.fetchone()[0]
+            return cur.fetchone()["exists"]
 
     @tracer.capture_method(name="MemberInsert")
     def insert(self, request: RegisterRequest, cognito_sub: str, invited_by: str,
