@@ -18,7 +18,7 @@ class InviteRepository:
                 "SELECT EXISTS (SELECT 1 FROM invites WHERE mobile = %s AND status = %s)",
                 (mobile, InviteStatus.PENDING.value),
             )
-            return cur.fetchone()[0]
+            return cur.fetchone()["exists"]
 
     @tracer.capture_method(name="InviteInsert")
     def insert(self, invite_request: InviteRequest, activation_code: str, invited_by: str):
