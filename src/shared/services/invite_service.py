@@ -9,7 +9,14 @@ from shared.reference_data.invite_status import InviteStatus
 import boto3
 
 logger = Logger()
-_sns = boto3.client("sns")
+_sns = None
+
+
+def _get_sns():
+    global _sns
+    if _sns is None:
+        _sns = boto3.client("sns")
+    return _sns
 
 
 def generate_activation_code() -> str:
@@ -19,7 +26,7 @@ def generate_activation_code() -> str:
 def publish_invite_sms(mobile: str, activation_code: str):
     topic_arn = os.environ["SMS_TOPIC_ARN"]
     message = f"Your NIB activation code is: {activation_code}"
-    response = _sns.publish(
+    response = _get_sns().publish(
         TopicArn=topic_arn,
         Message=json.dumps({"mobile": mobile, "message": message}),
     )
