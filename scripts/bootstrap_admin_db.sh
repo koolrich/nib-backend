@@ -25,6 +25,7 @@ DO \$\$
 DECLARE
     v_membership_id UUID;
     v_member_id     UUID;
+    v_period_id     UUID;
 BEGIN
     INSERT INTO memberships (membership_type)
     VALUES ('individual')
@@ -58,6 +59,13 @@ BEGIN
     UPDATE memberships
     SET primary_member_id = v_member_id
     WHERE id = v_membership_id;
+
+    INSERT INTO membership_periods (membership_id, start_date, end_date, status)
+    VALUES (v_membership_id, DATE_TRUNC('year', CURRENT_DATE), DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year' - INTERVAL '1 day', 'active')
+    RETURNING id INTO v_period_id;
+
+    INSERT INTO invoices (membership_period_id, amount_due, status)
+    VALUES (v_period_id, 60.00, 'unpaid');
 END \$\$;
 SQL
 echo "------------------------------------------------------------"
