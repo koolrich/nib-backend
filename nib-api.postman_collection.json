@@ -291,6 +291,29 @@
           }
         },
         {
+          "name": "List Members",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/v1/members",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "members"],
+              "query": [
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Member By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/members/{{member_id}}"
+          }
+        },
+        {
           "name": "Patch Member",
           "request": {
             "method": "PATCH",

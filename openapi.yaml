@@ -443,6 +443,50 @@ components:
         status:
           type: string
           enum: [pending, active, inactive, rejected]
+        is_legacy:
+          type: boolean
+        date_joined:
+          type: string
+          format: date
+          nullable: true
+        membership_type:
+          type: string
+          enum: [individual, family, student]
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    MemberListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        member_role:
+          type: string
+          enum: [member, executive, admin]
+        date_joined:
+          type: string
+          format: date
+          nullable: true
+        membership_type:
+          type: string
+          enum: [individual, family, student]
+          nullable: true
+        payment_status:
+          type: string
+          description: Invoice status for current period. Only included for executive/admin callers.
+          nullable: true
 
     MembershipPeriod:
       type: object
@@ -1216,6 +1260,150 @@ paths:
                 $ref: '#/components/schemas/Error'
         '422':
           description: Event completed or pledge cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /members:
+    get:
+      summary: List members
+      description: Returns all active members. Regular members see basic info; executives and admins additionally see payment_status for the current membership period.
+      operationId: listMembers
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by first or last name (case-insensitive partial match)
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MemberListItem'
+        '403':
+          description: Authenticated member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /members/{id}:
+    get:
+      summary: Get member profile
+      description: Returns full profile for any member. Executives can view any member; regular members can only view their own.
+      operationId: getMemberById
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberProfile'
+        '404':
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Authenticated member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: Update member profile
+      description: Update a member's profile fields. Members can update their own profile. Executives and admins can update any member's profile, including role and status.
+      operationId: patchMember
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                email:
+                  type: string
+                mobile:
+                  type: string
+                address_line1:
+                  type: string
+                address_line2:
+                  type: string
+                town:
+                  type: string
+                post_code:
+                  type: string
+                state_of_origin:
+                  type: string
+                lga:
+                  type: string
+                birthday_day:
+                  type: integer
+                birthday_month:
+                  type: integer
+                relationship_status:
+                  type: string
+                emergency_contact_name:
+                  type: string
+                emergency_contact_phone:
+                  type: string
+                member_role:
+                  type: string
+                  enum: [member, executive, admin]
+                  description: Executives and admins only
+                status:
+                  type: string
+                  enum: [pending, active, inactive, rejected]
+                  description: Executives and admins only
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberProfile'
+        '403':
+          description: Not authorised to update this member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Member not found
           content:
             application/json:
               schema:

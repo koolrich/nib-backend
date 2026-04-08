@@ -77,15 +77,42 @@ class MemberRepository:
         with self.conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, first_name, last_name, email, mobile, address_line1, address_line2,
-                       town, post_code, state_of_origin, lga, birthday_day, birthday_month,
-                       relationship_status, emergency_contact_name, emergency_contact_phone,
-                       member_role, status, is_legacy, date_joined, membership_id
-                FROM members WHERE id = %s
+                SELECT m.id, m.first_name, m.last_name, m.email, m.mobile,
+                       m.address_line1, m.address_line2, m.town, m.post_code,
+                       m.state_of_origin, m.lga, m.birthday_day, m.birthday_month,
+                       m.relationship_status, m.emergency_contact_name, m.emergency_contact_phone,
+                       m.member_role, m.status, m.is_legacy, m.date_joined, m.membership_id,
+                       ms.membership_type,
+                       m.created_at, m.updated_at
+                FROM members m
+                LEFT JOIN memberships ms ON ms.id = m.membership_id
+                WHERE m.id = %s
                 """,
                 (member_id,),
             )
             return cur.fetchone()
+
+    @tracer.capture_method(name="MemberGetAll")
+    def get_all(self, search: str | None = None) -> list:
+        with self.conn.cursor() as cur:
+            query = """
+                SELECT m.id, m.first_name, m.last_name, m.member_role, m.date_joined,
+                       ms.membership_type,
+                       inv.status AS payment_status
+                FROM members m
+                LEFT JOIN memberships ms ON ms.id = m.membership_id
+                LEFT JOIN membership_periods mp
+                    ON mp.membership_id = ms.id AND mp.status = 'active'
+                LEFT JOIN invoices inv ON inv.membership_period_id = mp.id
+                WHERE m.status = 'active'
+            """
+            params = []
+            if search:
+                query += " AND (m.first_name ILIKE %s OR m.last_name ILIKE %s)"
+                params += [f"%{search}%", f"%{search}%"]
+            query += " ORDER BY m.first_name, m.last_name"
+            cur.execute(query, params)
+            return cur.fetchall()
 
     @tracer.capture_method(name="MemberUpdate")
     def update(self, member_id: str, fields: dict) -> dict | None:

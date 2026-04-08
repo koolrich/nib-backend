@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from shared.serializers.member_serializers import serialize_member, serialize_member_pledge
+from shared.serializers.member_serializers import serialize_member, serialize_member_pledge, serialize_member_list_item
 
 logger = Logger()
 
@@ -20,6 +20,19 @@ def get_my_profile(uow, member_id: str) -> dict:
 def get_my_pledges(uow, member_id: str) -> dict:
     rows = uow.pledges.get_by_member(member_id)
     return _response(200, {"pledges": [serialize_member_pledge(r) for r in rows]})
+
+
+def get_member_profile(uow, member_id: str) -> dict:
+    member = uow.members.get_by_id(member_id)
+    if not member:
+        return _response(404, {"error": "Member not found"})
+    return _response(200, serialize_member(member))
+
+
+def list_members(uow, caller: dict, search: str | None = None) -> dict:
+    is_exec = caller["member_role"] in ("executive", "admin")
+    rows = uow.members.get_all(search=search)
+    return _response(200, {"members": [serialize_member_list_item(r, is_exec=is_exec) for r in rows]})
 
 
 def patch_member(uow, caller: dict, target_member_id: str, body: dict) -> dict:

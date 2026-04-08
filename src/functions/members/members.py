@@ -5,7 +5,7 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.instrumentation.tracer import tracer
-from shared.services.member_service import get_my_profile, get_my_pledges, patch_member
+from shared.services.member_service import get_my_profile, get_my_pledges, patch_member, get_member_profile, list_members
 from shared.uow.member_uow import MemberUoW
 
 logger = Logger()
@@ -38,6 +38,13 @@ def handler(event: Dict[str, Any], context: LambdaContext):
 
             if route_key == "GET /v1/members/me/pledges":
                 return get_my_pledges(uow, str(caller["id"]))
+
+            if route_key == "GET /v1/members":
+                search = (event.get("queryStringParameters") or {}).get("search")
+                return list_members(uow, caller, search=search)
+
+            if route_key == "GET /v1/members/{id}":
+                return get_member_profile(uow, path_params["id"])
 
             if route_key == "PATCH /v1/members/{id}":
                 return patch_member(uow, caller, path_params["id"], body)

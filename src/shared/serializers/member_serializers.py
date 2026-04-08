@@ -18,7 +18,26 @@ def serialize_member(row) -> dict:
         "emergency_contact_phone": row["emergency_contact_phone"],
         "member_role": row["member_role"],
         "status": row["status"],
+        "is_legacy": row["is_legacy"],
+        "date_joined": str(row["date_joined"]) if row["date_joined"] else None,
+        "membership_type": row["membership_type"],
+        "created_at": str(row["created_at"]) if row["created_at"] else None,
+        "updated_at": str(row["updated_at"]) if row["updated_at"] else None,
     }
+
+
+def serialize_member_list_item(row, is_exec: bool = False) -> dict:
+    result = {
+        "id": str(row["id"]),
+        "first_name": row["first_name"],
+        "last_name": row["last_name"],
+        "member_role": row["member_role"],
+        "date_joined": str(row["date_joined"]) if row["date_joined"] else None,
+        "membership_type": row["membership_type"],
+    }
+    if is_exec:
+        result["payment_status"] = row["payment_status"]
+    return result
 
 
 def serialize_member_pledge(row) -> dict:

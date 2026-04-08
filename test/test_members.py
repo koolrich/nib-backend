@@ -13,7 +13,15 @@ MEMBER_PROFILE = {
     "state_of_origin": None, "lga": None, "birthday_day": 1, "birthday_month": 6,
     "relationship_status": None, "emergency_contact_name": None,
     "emergency_contact_phone": None, "member_role": "member",
-    "status": "active", "updated_at": "2026-04-05T10:00:00",
+    "status": "active", "is_legacy": False, "date_joined": "2025-01-01",
+    "membership_type": "individual",
+    "created_at": "2025-01-01T10:00:00", "updated_at": "2026-04-05T10:00:00",
+}
+
+MEMBER_LIST_ITEM = {
+    "id": "member-uuid", "first_name": "Alice", "last_name": "Smith",
+    "member_role": "member", "date_joined": "2025-01-01",
+    "membership_type": "individual", "payment_status": "pending",
 }
 
 MY_PLEDGE = {
@@ -32,13 +40,14 @@ MY_PLEDGE_WITH_CONTRIBUTION = {
 }
 
 
-def _make_uow(caller=MEMBER, pledges=None, member_profile=MEMBER_PROFILE, update_result=MEMBER_PROFILE):
+def _make_uow(caller=MEMBER, pledges=None, member_profile=MEMBER_PROFILE, update_result=MEMBER_PROFILE, member_list=None):
     uow = MagicMock()
     uow.__enter__ = MagicMock(return_value=uow)
     uow.__exit__ = MagicMock(return_value=False)
     uow.members.get_by_cognito_sub.return_value = caller
     uow.members.get_by_id.return_value = member_profile
     uow.members.update.return_value = update_result
+    uow.members.get_all.return_value = member_list if member_list is not None else [MEMBER_LIST_ITEM]
     uow.pledges.get_by_member.return_value = pledges if pledges is not None else []
     return uow
 
@@ -127,3 +136,41 @@ def test_patch_nonexistent_member_returns_404(mock_uow_cls):
     mock_uow_cls.return_value = _make_uow(caller=EXEC_MEMBER, member_profile=None)
     result = members.handler(_event("PATCH /v1/members/{id}", {"first_name": "Bob"}, {"id": "bad-uuid"}, cognito_sub="exec-sub"), generate_context())
     assert result["statusCode"] == 404
+
+
+@patch("functions.members.members.MemberUoW")
+def test_get_member_by_id_returns_200(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = members.handler(_event("GET /v1/members/{id}", path_params={"id": "member-uuid"}), generate_context())
+    assert result["statusCode"] == 200
+    body = json.loads(result["body"])
+    assert body["id"] == "member-uuid"
+    assert body["membership_type"] == "individual"
+    assert body["is_legacy"] is False
+
+
+@patch("functions.members.members.MemberUoW")
+def test_get_member_by_id_not_found_returns_404(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(member_profile=None)
+    result = members.handler(_event("GET /v1/members/{id}", path_params={"id": "bad-uuid"}), generate_context())
+    assert result["statusCode"] == 404
+
+
+@patch("functions.members.members.MemberUoW")
+def test_list_members_returns_200(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = members.handler(_event("GET /v1/members"), generate_context())
+    assert result["statusCode"] == 200
+    body = json.loads(result["body"])
+    assert len(body["members"]) == 1
+    assert body["members"][0]["id"] == "member-uuid"
+    assert "payment_status" not in body["members"][0]
+
+
+@patch("functions.members.members.MemberUoW")
+def test_list_members_exec_sees_payment_status(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=EXEC_MEMBER)
+    result = members.handler(_event("GET /v1/members", cognito_sub="exec-sub"), generate_context())
+    assert result["statusCode"] == 200
+    body = json.loads(result["body"])
+    assert "payment_status" in body["members"][0]
