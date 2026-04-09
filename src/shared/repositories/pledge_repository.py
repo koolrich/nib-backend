@@ -56,7 +56,7 @@ class PledgeRepository:
                     ei.quantity_needed - COALESCE(
                         SUM(p.quantity) FILTER (
                             WHERE p.status = 'pledged'
-                            AND (%s IS NULL OR p.member_id != %s::uuid)
+                            AND (%s::uuid IS NULL OR p.member_id != %s::uuid)
                         ), 0
                     ) AS quantity_remaining
                 FROM event_items ei
@@ -140,4 +140,4 @@ class PledgeRepository:
                 (pledge_id,),
             )
             row = cur.fetchone()
-            return row[0] if row else False
+            return row["exists"] if row else False
