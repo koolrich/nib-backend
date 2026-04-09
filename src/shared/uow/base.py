@@ -1,4 +1,4 @@
-from shared.db import get_connection
+from shared.db import get_connection, _open_connection, preload_params
 
 
 class UnitOfWork:
@@ -8,7 +8,15 @@ class UnitOfWork:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
-            self.conn.rollback()
+            try:
+                self.conn.rollback()
+            except Exception:
+                pass
         else:
-            self.conn.commit()
+            try:
+                self.conn.commit()
+            except Exception:
+                import shared.db as db
+                db._connection = _open_connection(preload_params())
+                raise
         return False

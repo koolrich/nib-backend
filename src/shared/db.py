@@ -41,10 +41,4 @@ def get_connection():
     global _connection
     if _connection is None or _connection.closed:
         _connection = _open_connection(preload_params())
-        return _connection
-    try:
-        _connection.execute("SELECT 1")
-        return _connection
-    except Exception:
-        _connection = _open_connection(preload_params())
-        return _connection
+    return _connection
