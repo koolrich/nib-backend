@@ -26,16 +26,25 @@ def preload_params():
     return _cached_params
 
 
+def _open_connection(params):
+    return psycopg.connect(
+        host=params["/nib/db/host"],
+        dbname=params["/nib/db/name"],
+        user=params["/nib/db/username"],
+        password=params["/nib/db/password"],
+        port=params["/nib/db/port"],
+        row_factory=dict_row,
+    )
+
+
 def get_connection():
     global _connection
     if _connection is None or _connection.closed:
-        params = preload_params()
-        _connection = psycopg.connect(
-            host=params["/nib/db/host"],
-            dbname=params["/nib/db/name"],
-            user=params["/nib/db/username"],
-            password=params["/nib/db/password"],
-            port=params["/nib/db/port"],
-            row_factory=dict_row,
-        )
-    return _connection
+        _connection = _open_connection(preload_params())
+        return _connection
+    try:
+        _connection.execute("SELECT 1")
+        return _connection
+    except Exception:
+        _connection = _open_connection(preload_params())
+        return _connection
