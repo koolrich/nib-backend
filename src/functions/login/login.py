@@ -27,4 +27,4 @@ def handler(event: Dict[str, Any], context: LambdaContext):
         return login(request)
     except Exception as e:
         logger.exception("Unexpected error during login", extra={"error": str(e)})
-        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+        return {"statusCode": 500, "body": json.dumps({"error": "An unexpected error occurred"})}

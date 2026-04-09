@@ -29,4 +29,4 @@ def handler(event: Dict[str, Any], context: LambdaContext):
             return register(uow, request)
     except Exception as e:
         logger.exception("Unexpected error during registration", extra={"error": str(e)})
-        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+        return {"statusCode": 500, "body": json.dumps({"error": "An unexpected error occurred"})}

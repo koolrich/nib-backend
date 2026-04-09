@@ -53,4 +53,4 @@ def handler(event: Dict[str, Any], context: LambdaContext):
 
     except Exception as e:
         logger.exception("Unexpected error", extra={"error": str(e)})
-        return _response(500, {"error": str(e)})
+        return _response(500, {"error": "An unexpected error occurred"})

@@ -30,4 +30,4 @@ def handler(event: Dict[str, Any], context: LambdaContext):
             return send_invite(uow, invite_request, cognito_sub)
     except Exception as e:
         logger.exception("Unexpected error occurred", extra={"error": str(e)})
-        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+        return {"statusCode": 500, "body": json.dumps({"error": "An unexpected error occurred"})}
