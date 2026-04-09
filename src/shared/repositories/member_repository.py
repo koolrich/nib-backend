@@ -133,18 +133,10 @@ class MemberRepository:
 
         with self.conn.cursor() as cur:
             cur.execute(
-                f"""
-                UPDATE members
-                SET {set_clause}, updated_at = NOW()
-                WHERE id = %s
-                RETURNING id, first_name, last_name, email, mobile, address_line1, address_line2,
-                          town, post_code, state_of_origin, lga, birthday_day, birthday_month,
-                          relationship_status, emergency_contact_name, emergency_contact_phone,
-                          member_role, status, updated_at
-                """,
+                f"UPDATE members SET {set_clause}, updated_at = NOW() WHERE id = %s",
                 values,
             )
-            return cur.fetchone()
+        return self.get_by_id(member_id)
 
     @tracer.capture_method(name="MemberGetWithMembershipType")
     def get_with_membership_type(self, member_id: str) -> dict | None:
