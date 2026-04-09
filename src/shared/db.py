@@ -3,6 +3,7 @@ import psycopg
 from psycopg.rows import dict_row
 
 _cached_params = {}
+_connection = None
 
 
 def preload_params():
@@ -26,12 +27,15 @@ def preload_params():
 
 
 def get_connection():
-    params = preload_params()
-    return psycopg.connect(
-        host=params["/nib/db/host"],
-        dbname=params["/nib/db/name"],
-        user=params["/nib/db/username"],
-        password=params["/nib/db/password"],
-        port=params["/nib/db/port"],
-        row_factory=dict_row,
-    )
+    global _connection
+    if _connection is None or _connection.closed:
+        params = preload_params()
+        _connection = psycopg.connect(
+            host=params["/nib/db/host"],
+            dbname=params["/nib/db/name"],
+            user=params["/nib/db/username"],
+            password=params["/nib/db/password"],
+            port=params["/nib/db/port"],
+            row_factory=dict_row,
+        )
+    return _connection

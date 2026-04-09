@@ -11,5 +11,4 @@ class UnitOfWork:
             self.conn.rollback()
         else:
             self.conn.commit()
-        self.conn.close()
         return False
