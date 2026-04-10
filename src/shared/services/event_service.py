@@ -56,7 +56,7 @@ def get_event(uow, event_id: str) -> dict:
     result = serialize_event(event)
     if event["type"] == "pledge":
         result["items"] = [serialize_item(i) for i in uow.events.get_items(event_id)]
-    result["pledges"] = [serialize_pledge(p) for p in uow.events.get_pledges(event_id)]
+        result["pledges"] = [serialize_pledge(p) for p in uow.events.get_pledges(event_id)]
     result["contributions"] = [serialize_contribution(c) for c in uow.events.get_contributions(event_id)]
     return _response(200, result)
 
