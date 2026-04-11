@@ -93,7 +93,7 @@ class EventRepository:
                 (event_id, event_id),
             )
             row = cur.fetchone()
-            return row[0] if row else False
+            return row["exists"] if row else False
 
     @tracer.capture_method(name="EventGetItems")
     def get_items(self, event_id: str) -> list:
@@ -119,6 +119,45 @@ class EventRepository:
                 r["is_available"] = r["quantity_remaining"] > 0
                 result.append(r)
             return result
+
+    @tracer.capture_method(name="EventGetItemById")
+    def get_item_by_id(self, item_id: str, event_id: str) -> dict | None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, event_id, name, quantity_needed, unit, created_at FROM event_items WHERE id = %s AND event_id = %s",
+                (item_id, event_id),
+            )
+            return cur.fetchone()
+
+    @tracer.capture_method(name="EventItemHasActivePledges")
+    def item_has_active_pledges(self, item_id: str) -> bool:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT EXISTS (SELECT 1 FROM pledges WHERE event_item_id = %s AND status = 'pledged')",
+                (item_id,),
+            )
+            return cur.fetchone()["exists"]
+
+    @tracer.capture_method(name="EventUpdateItem")
+    def update_item(self, item_id: str, fields: dict) -> dict:
+        allowed = {"name", "quantity_needed", "unit"}
+        updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+        if not updates:
+            return self.get_item_by_id(item_id, None)
+
+        set_clause = ", ".join(f"{k} = %s" for k in updates)
+        values = list(updates.values()) + [item_id]
+        with self.conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE event_items SET {set_clause} WHERE id = %s RETURNING id, event_id, name, quantity_needed, unit, created_at",
+                values,
+            )
+            return cur.fetchone()
+
+    @tracer.capture_method(name="EventDeleteItem")
+    def delete_item(self, item_id: str):
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM event_items WHERE id = %s", (item_id,))
 
     @tracer.capture_method(name="EventInsertItems")
     def insert_items(self, event_id: str, items: list) -> list:

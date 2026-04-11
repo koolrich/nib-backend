@@ -481,6 +481,16 @@ module "api_gateway" {
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
+    "PATCH /v1/events/{id}/items/{itemId}" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "DELETE /v1/events/{id}/items/{itemId}" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
     "POST /v1/events/{id}/pledges" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn

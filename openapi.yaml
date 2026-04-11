@@ -1021,6 +1021,105 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /events/{id}/items/{itemId}:
+    patch:
+      summary: Update an event item
+      description: Update name, quantity_needed or unit on an item. Executive or admin only. Not allowed if active pledges exist.
+      operationId: patchEventItem
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                quantity_needed:
+                  type: number
+                unit:
+                  type: string
+      responses:
+        '200':
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventItemCreated'
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Event or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Event completed or item has active pledges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete an event item
+      description: Delete an item from a pledge event. Executive or admin only. Not allowed if active pledges exist.
+      operationId: deleteEventItem
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Item deleted
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Event or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Event completed or item has active pledges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /events/{id}/pledges:
     post:
       summary: Create a pledge

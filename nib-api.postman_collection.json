@@ -194,6 +194,29 @@
           }
         },
         {
+          "name": "Patch Event Item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/v1/events/{{event_id}}/items/{{event_item_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity_needed\": 12\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Event Item",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/v1/events/{{event_id}}/items/{{event_item_id}}"
+          }
+        },
+        {
           "name": "Create Pledge",
           "event": [
             {

@@ -86,6 +86,50 @@ def patch_event(uow, member: dict, event_id: str, body: dict) -> dict:
     return _response(200, serialize_event_update(row))
 
 
+def patch_item(uow, member: dict, event_id: str, item_id: str, body: dict) -> dict:
+    err = _require_executive(member)
+    if err:
+        return err
+
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot edit a completed event"})
+
+    item = uow.events.get_item_by_id(item_id, event_id)
+    if not item:
+        return _response(404, {"error": "Item not found"})
+
+    if uow.events.item_has_active_pledges(item_id):
+        return _response(422, {"error": "Cannot edit an item that has been pledged"})
+
+    row = uow.events.update_item(item_id, body)
+    return _response(200, serialize_item_insert(row))
+
+
+def delete_item(uow, member: dict, event_id: str, item_id: str) -> dict:
+    err = _require_executive(member)
+    if err:
+        return err
+
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot edit a completed event"})
+
+    item = uow.events.get_item_by_id(item_id, event_id)
+    if not item:
+        return _response(404, {"error": "Item not found"})
+
+    if uow.events.item_has_active_pledges(item_id):
+        return _response(422, {"error": "Cannot remove an item that has been pledged"})
+
+    uow.events.delete_item(item_id)
+    return {"statusCode": 204, "body": ""}
+
+
 def add_items(uow, member: dict, event_id: str, body: dict) -> dict:
     err = _require_executive(member)
     if err:
