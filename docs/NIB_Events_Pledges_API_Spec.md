@@ -10,7 +10,7 @@
 | id | UUID PK | |
 | title | TEXT | |
 | date | DATE | |
-| type | ENUM | `pledge`, `contribution` |
+| type | ENUM | `pledge`, `contribution`, `general` |
 | status | ENUM | `upcoming`, `completed` |
 | description | TEXT | Optional |
 | created_by | UUID FK → members.id | Exec only |

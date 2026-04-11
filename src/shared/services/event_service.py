@@ -10,7 +10,7 @@ from shared.serializers.event_serializers import (
 
 logger = Logger()
 
-VALID_EVENT_TYPES = {"pledge", "contribution"}
+VALID_EVENT_TYPES = {"pledge", "contribution", "general"}
 VALID_EVENT_STATUSES = {"upcoming", "completed"}
 
 
@@ -57,7 +57,8 @@ def get_event(uow, event_id: str) -> dict:
     if event["type"] == "pledge":
         result["items"] = [serialize_item(i) for i in uow.events.get_items(event_id)]
         result["pledges"] = [serialize_pledge(p) for p in uow.events.get_pledges(event_id)]
-    result["contributions"] = [serialize_contribution(c) for c in uow.events.get_contributions(event_id)]
+    if event["type"] in ("pledge", "contribution"):
+        result["contributions"] = [serialize_contribution(c) for c in uow.events.get_contributions(event_id)]
     return _response(200, result)
 
 

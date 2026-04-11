@@ -179,7 +179,7 @@ components:
           example: "2026-08-12"
         type:
           type: string
-          enum: [pledge, contribution]
+          enum: [pledge, contribution, general]
         status:
           type: string
           enum: [upcoming, completed]
@@ -206,7 +206,7 @@ components:
           example: "2026-08-12"
         type:
           type: string
-          enum: [pledge, contribution]
+          enum: [pledge, contribution, general]
         status:
           type: string
           enum: [upcoming, completed]
@@ -237,7 +237,7 @@ components:
           format: date
         type:
           type: string
-          enum: [pledge, contribution]
+          enum: [pledge, contribution, general]
         status:
           type: string
           enum: [upcoming, completed]
@@ -800,7 +800,7 @@ paths:
                   example: "2026-08-12"
                 type:
                   type: string
-                  enum: [pledge, contribution]
+                  enum: [pledge, contribution, general]
                 description:
                   type: string
                   nullable: true
@@ -923,7 +923,7 @@ paths:
                   type: string
                 type:
                   type: string
-                  enum: [pledge, contribution]
+                  enum: [pledge, contribution, general]
                 status:
                   type: string
                   enum: [upcoming, completed]
