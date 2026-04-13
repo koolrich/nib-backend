@@ -77,6 +77,19 @@ def delete_user(username: str):
     )
 
 
+@tracer.capture_method(name="CognitoRefreshAuth")
+def refresh_auth(refresh_token: str) -> dict:
+    config = _get_cognito_config()
+    client = _get_client()
+
+    response = client.initiate_auth(
+        ClientId=config["/nib/cognito/app_client_id"],
+        AuthFlow="REFRESH_TOKEN_AUTH",
+        AuthParameters={"REFRESH_TOKEN": refresh_token},
+    )
+    return response["AuthenticationResult"]
+
+
 @tracer.capture_method(name="CognitoInitiateAuth")
 def initiate_auth(mobile: str, password: str) -> dict:
     config = _get_cognito_config()

@@ -12,7 +12,8 @@
     { "key": "event_item_id", "value": "" },
     { "key": "pledge_id", "value": "" },
     { "key": "invoice_id", "value": "" },
-    { "key": "payment_id", "value": "" }
+    { "key": "payment_id", "value": "" },
+    { "key": "refresh_token", "value": "" }
   ],
   "item": [
     {
@@ -26,9 +27,8 @@
               "script": {
                 "exec": [
                   "var body = pm.response.json();",
-                  "if (body.id_token) {",
-                  "  pm.collectionVariables.set('token', body.id_token);",
-                  "}"
+                  "if (body.id_token) { pm.collectionVariables.set('token', body.id_token); }",
+                  "if (body.refresh_token) { pm.collectionVariables.set('refresh_token', body.refresh_token); }"
                 ]
               }
             }
@@ -40,6 +40,29 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"+447123456789\",\n  \"password\": \"YourPassword1\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.id_token) { pm.collectionVariables.set('token', body.id_token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/v1/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
             }
           }
         }

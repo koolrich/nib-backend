@@ -668,6 +668,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /auth/refresh:
+    post:
+      summary: Refresh tokens
+      description: Exchange a refresh token for a new access token and id token. No authentication required.
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required: [refresh_token]
+      responses:
+        '200':
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  id_token:
+                    type: string
+                  expires_in:
+                    type: integer
+        '401':
+          description: Refresh token is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /invites/validate:
     post:
       summary: Validate invite code
