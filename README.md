@@ -41,36 +41,50 @@
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Mobile App (Flutter)                      │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ HTTPS
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              API Gateway v2 (HTTP API, $default stage)          │
-│              All routes prefixed /v1/                           │
-│              JWT authorizer → Cognito User Pool                 │
-└──────┬──────────┬──────────┬──────────┬──────────┬─────────────┘
-       │          │          │          │          │
-       ▼          ▼          ▼          ▼          ▼
-   [login]   [register] [send_invite] [members] [events]  [payments]
-       │
-       │  (public routes — no JWT required)
-       │  POST /v1/auth/login
-       │  POST /v1/auth/refresh
-       │  POST /v1/auth/register
-       │  POST /v1/invites/validate
+```mermaid
+flowchart TD
+    Mobile["📱 Mobile App\n(Flutter — Android)"]
 
-┌─────────────────────────────────────────────────────────────────┐
-│                     Private VPC Subnet                          │
-│                                                                 │
-│  All Lambdas (except sms_dispatcher) ──► RDS PostgreSQL        │
-│                                    ──► SSM (via VPC endpoint)  │
-│                                    ──► SNS (via VPC endpoint)  │
-│                                                                 │
-│  sms_dispatcher ──► Twilio REST API (internet — no VPC)        │
-└─────────────────────────────────────────────────────────────────┘
+    subgraph APIGW["API Gateway v2 (HTTP API · /v1/)"]
+        Auth["JWT Authorizer\n↓ Cognito User Pool"]
+    end
+
+    Mobile -->|HTTPS| APIGW
+
+    APIGW --> login["login\nPOST /auth/login\nPOST /auth/refresh"]
+    APIGW --> register["register\nPOST /auth/register"]
+    APIGW --> validate["validate_invite\nPOST /invites/validate"]
+    APIGW --> invite["send_invite\nPOST /invites"]
+    APIGW --> members["members\nGET · PATCH /members/*"]
+    APIGW --> events["events\nGET · POST · PATCH\n/events/*"]
+    APIGW --> payments["payments\n/invoices · /payments\n/members/*/statement"]
+
+    subgraph VPC["Private VPC (eu-west-2) — no NAT Gateway"]
+        subgraph Lambda["Lambda functions (private subnet)"]
+            login
+            register
+            validate
+            invite
+            members
+            events
+            payments
+        end
+
+        RDS[("RDS PostgreSQL 16\n(private subnet)")]
+        SSM["SSM Parameter Store\n(VPC endpoint)"]
+        SNS_EP["SNS Topic\n(VPC endpoint)"]
+
+        Lambda -->|psycopg3| RDS
+        Lambda -->|secrets| SSM
+        invite -->|publish SMS event| SNS_EP
+    end
+
+    sms["sms_dispatcher\n(outside VPC — SNS trigger)"]
+    Twilio["Twilio API\n(internet)"]
+
+    SNS_EP -->|fan-out| sms
+    sms -->|HTTPS| Twilio
+    Twilio -->|SMS| Mobile
 ```
 
 **Key constraint:** No NAT Gateway (cost decision). All VPC Lambdas can only reach AWS services via VPC Interface Endpoints. The `sms_dispatcher` Lambda is the only one outside the VPC, specifically so it can reach the Twilio API.
@@ -81,18 +95,33 @@
 
 ### VPC Layout
 
-```
-VPC (10.0.0.0/16)
-├── Private Subnet A (eu-west-2a) — Lambda + RDS
-├── Private Subnet B (eu-west-2b) — RDS Multi-AZ standby
-└── No public subnets, no NAT Gateway, no internet access from VPC
+```mermaid
+flowchart TB
+    subgraph VPC["VPC · 10.0.0.0/16 · eu-west-2"]
+        subgraph SubnetA["Private Subnet A · eu-west-2a"]
+            Lambda2["Lambda functions"]
+            RDS2[("RDS Primary")]
+        end
+        subgraph SubnetB["Private Subnet B · eu-west-2b"]
+            RDS3[("RDS Standby\n(Multi-AZ)")]
+        end
 
-VPC Interface Endpoints:
-├── com.amazonaws.eu-west-2.ssm            — parameter store access
-├── com.amazonaws.eu-west-2.ssmmessages    — Session Manager (bastion)
-├── com.amazonaws.eu-west-2.ec2messages    — Session Manager (bastion)
-├── com.amazonaws.eu-west-2.sns            — SMS topic publish
-└── com.amazonaws.eu-west-2.cognito-idp   — Cognito calls from Lambda
+        subgraph Endpoints["VPC Interface Endpoints"]
+            EP1["ssm\nssmmessages · ec2messages\n(Session Manager — bastion)"]
+            EP2["sns\n(SMS fan-out topic)"]
+            EP3["cognito-idp\n(auth calls from Lambda)"]
+        end
+
+        Bastion["EC2 Bastion\nt3.micro\n(nib-db-access-infra)"]
+    end
+
+    Lambda2 --- EP1
+    Lambda2 --- EP2
+    Lambda2 --- EP3
+    Bastion --- EP1
+
+    Internet(("Internet\n(no NAT)"))
+    VPC -. "no route" .- Internet
 ```
 
 ### Terraform Structure
@@ -139,18 +168,18 @@ infra/
 
 SMS cannot be sent directly from VPC Lambdas (no NAT, no Twilio VPC endpoint). The solution is a fan-out pattern:
 
-```
-send_invite Lambda (in VPC)
-    │
-    │  sns.publish({mobile, message}) → SNS Topic: nib-sms-topic-{env}
-    │
-    ▼
-sms_dispatcher Lambda (outside VPC, SNS-triggered)
-    │
-    │  urllib POST → api.twilio.com
-    │
-    ▼
-  Twilio → SMS to recipient
+```mermaid
+sequenceDiagram
+    participant Lambda as Any Lambda (in VPC)
+    participant SNS as SNS Topic<br/>nib-sms-topic-{env}<br/>(VPC endpoint)
+    participant Dispatcher as sms_dispatcher<br/>(outside VPC)
+    participant Twilio as Twilio API
+    participant Phone as Recipient's Phone
+
+    Lambda->>SNS: publish({mobile, message})
+    SNS->>Dispatcher: trigger (SNS event)
+    Dispatcher->>Twilio: POST /Messages (urllib)
+    Twilio->>Phone: SMS
 ```
 
 This pattern is also reusable for any future SMS (reminders, notifications) — any Lambda can publish to the SNS topic and `sms_dispatcher` will handle delivery.
@@ -350,13 +379,50 @@ organisation              — single-row bank details table
 
 ### Auth Flow
 
-```
-1. Exec sends invite  →  recipient gets SMS with activation code
-2. App validates code  →  GET invite details (name, relationship)
-3. User registers  →  Cognito signUp + adminConfirmSignUp + DB insert
-4. User logs in  →  Cognito adminInitiateAuth → JWT tokens returned
-5. Tokens expire  →  POST /v1/auth/refresh → new access + id tokens
-6. All API calls  →  id_token as Bearer token in Authorization header
+```mermaid
+sequenceDiagram
+    participant Exec as Executive
+    participant App as Mobile App
+    participant APIGW as API Gateway
+    participant Lambda as Lambda
+    participant Cognito as AWS Cognito
+    participant DB as PostgreSQL
+
+    Exec->>APIGW: POST /v1/invites
+    APIGW->>Lambda: send_invite
+    Lambda->>DB: INSERT invite (activation_code)
+    Lambda-->>Exec: 201 (SMS sent to recipient)
+
+    App->>APIGW: POST /v1/invites/validate {code}
+    APIGW->>Lambda: validate_invite
+    Lambda->>DB: lookup invite by code
+    Lambda-->>App: 200 {name, relationship}
+
+    App->>APIGW: POST /v1/auth/register {code, phone, password, ...}
+    APIGW->>Lambda: register
+    Lambda->>Cognito: adminCreateUser + adminSetUserPassword
+    Lambda->>DB: INSERT member
+    Lambda-->>App: 201 {member_id}
+
+    App->>APIGW: POST /v1/auth/login {phone, password}
+    APIGW->>Lambda: login
+    Lambda->>Cognito: adminInitiateAuth
+    Cognito-->>Lambda: access_token, id_token, refresh_token
+    Lambda-->>App: 200 {tokens}
+
+    Note over App,APIGW: All protected requests
+    App->>APIGW: GET /v1/members/me (Authorization: Bearer id_token)
+    APIGW->>Cognito: validate JWT
+    Cognito-->>APIGW: valid
+    APIGW->>Lambda: members
+    Lambda-->>App: 200 {profile}
+
+    Note over App,Lambda: When tokens expire
+    App->>APIGW: POST /v1/auth/refresh {refresh_token}
+    APIGW->>Lambda: login
+    Lambda->>Cognito: initiateAuth REFRESH_TOKEN_AUTH
+    Cognito-->>Lambda: new access_token, id_token
+    Lambda-->>App: 200 {tokens}
 ```
 
 ### Roles
