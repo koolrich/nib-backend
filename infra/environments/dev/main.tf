@@ -481,6 +481,11 @@ module "api_gateway" {
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
+    "DELETE /v1/events/{id}" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
     "POST /v1/events/{id}/items" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
@@ -512,6 +517,11 @@ module "api_gateway" {
       requires_auth     = true
     }
     "POST /v1/events/{id}/contributions" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "DELETE /v1/event-contributions/{id}" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
@@ -552,6 +562,11 @@ module "api_gateway" {
       requires_auth     = true
     }
     "PATCH /v1/members/{id}" = {
+      lambda_invoke_arn = module.lambda_function_members.invoke_arn
+      lambda_arn        = module.lambda_function_members.function_arn
+      requires_auth     = true
+    }
+    "GET /v1/organisation" = {
       lambda_invoke_arn = module.lambda_function_members.invoke_arn
       lambda_arn        = module.lambda_function_members.function_arn
       requires_auth     = true
