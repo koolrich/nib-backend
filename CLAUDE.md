@@ -201,3 +201,17 @@ Role stored as field on `members` table. Enforced via JWT claims in Lambda.
 
 ## iOS Build (future)
 No Mac available. Plan: use **Codemagic** (free tier, Flutter-native) for iOS builds. Apple Developer account (£99/year) required when ready. Android ships first.
+
+---
+
+## Working Conventions
+
+- **No Co-Authored-By in commits** — omit the `Co-Authored-By: Claude...` trailer from all commit messages.
+- **Terraform routes** — whenever a new endpoint is implemented, add the API Gateway route to `infra/environments/dev/main.tf` in the same commit. Missing routes cause 404s from the gateway even when the Lambda code is correct. Pattern:
+  ```hcl
+  "METHOD /v1/path/{param}" = {
+    lambda_invoke_arn = module.lambda_function_<name>.invoke_arn
+    lambda_arn        = module.lambda_function_<name>.function_arn
+    requires_auth     = true
+  }
+  ```
