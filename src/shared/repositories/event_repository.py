@@ -26,12 +26,20 @@ class EventRepository:
                 SELECT
                     e.id, e.title, e.date, e.type, e.status, e.description,
                     e.created_by, e.created_at,
-                    COALESCE(SUM(ec.amount), 0) AS total_contributions,
-                    COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'pledged') AS total_pledges
+                    COALESCE(ec.total, 0) AS total_contributions,
+                    COALESCE(p.total, 0) AS total_pledges
                 FROM events e
-                LEFT JOIN event_contributions ec ON ec.event_id = e.id
-                LEFT JOIN pledges p ON p.event_id = e.id
-                GROUP BY e.id
+                LEFT JOIN (
+                    SELECT event_id, SUM(amount) AS total
+                    FROM event_contributions
+                    GROUP BY event_id
+                ) ec ON ec.event_id = e.id
+                LEFT JOIN (
+                    SELECT event_id, COUNT(*) AS total
+                    FROM pledges
+                    WHERE status = 'pledged'
+                    GROUP BY event_id
+                ) p ON p.event_id = e.id
                 ORDER BY e.date DESC
                 """,
             )
@@ -45,15 +53,24 @@ class EventRepository:
                 SELECT
                     e.id, e.title, e.date, e.type, e.status, e.description,
                     e.created_by, e.created_at,
-                    COALESCE(SUM(ec.amount), 0) AS total_contributions,
-                    COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'pledged') AS total_pledges
+                    COALESCE(ec.total, 0) AS total_contributions,
+                    COALESCE(p.total, 0) AS total_pledges
                 FROM events e
-                LEFT JOIN event_contributions ec ON ec.event_id = e.id
-                LEFT JOIN pledges p ON p.event_id = e.id
+                LEFT JOIN (
+                    SELECT event_id, SUM(amount) AS total
+                    FROM event_contributions
+                    WHERE event_id = %s
+                    GROUP BY event_id
+                ) ec ON ec.event_id = e.id
+                LEFT JOIN (
+                    SELECT event_id, COUNT(*) AS total
+                    FROM pledges
+                    WHERE event_id = %s AND status = 'pledged'
+                    GROUP BY event_id
+                ) p ON p.event_id = e.id
                 WHERE e.id = %s
-                GROUP BY e.id
                 """,
-                (event_id,),
+                (event_id, event_id, event_id),
             )
             return cur.fetchone()
 
