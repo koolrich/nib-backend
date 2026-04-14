@@ -138,6 +138,10 @@ Scripts baked into AMI at `/usr/local/bin/`:
 8. Events, pledges, contributions, payments endpoints
 9. Scheduled jobs (EventBridge) — auto-create membership periods, send reminders
 
+### MVP2 backlog
+- Rate limiting on sensitive endpoints (`POST /invites/validate`, `POST /auth/forgot-password`) — API Gateway route-level throttling in Terraform
+- iOS build via Codemagic
+
 ---
 
 ## Target DB Schema (from spec)

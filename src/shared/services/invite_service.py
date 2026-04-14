@@ -1,6 +1,6 @@
 import json
 import os
-import uuid
+import secrets
 from datetime import datetime, timezone
 
 from aws_lambda_powertools import Logger
@@ -20,7 +20,7 @@ def _get_sns():
 
 
 def generate_activation_code() -> str:
-    return uuid.uuid4().hex[:8].upper()
+    return str(secrets.randbelow(1_000_000)).zfill(6)
 
 
 def publish_invite_sms(mobile: str, activation_code: str):

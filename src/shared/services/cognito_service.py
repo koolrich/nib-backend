@@ -90,6 +90,30 @@ def refresh_auth(refresh_token: str) -> dict:
     return response["AuthenticationResult"]
 
 
+@tracer.capture_method(name="CognitoSetPassword")
+def set_password(cognito_username: str, new_password: str):
+    """Set a user's password directly (admin operation — no current password needed)."""
+    config = _get_cognito_config()
+    client = _get_client()
+    client.admin_set_user_password(
+        UserPoolId=config["/nib/cognito/user_pool_id"],
+        Username=cognito_username,
+        Password=new_password,
+        Permanent=True,
+    )
+
+
+@tracer.capture_method(name="CognitoChangePassword")
+def change_password(access_token: str, current_password: str, new_password: str):
+    """Change password using the caller's access token — verifies current password."""
+    client = _get_client()
+    client.change_password(
+        AccessToken=access_token,
+        PreviousPassword=current_password,
+        ProposedPassword=new_password,
+    )
+
+
 @tracer.capture_method(name="CognitoInitiateAuth")
 def initiate_auth(mobile: str, password: str) -> dict:
     config = _get_cognito_config()

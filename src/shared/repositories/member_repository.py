@@ -17,6 +17,15 @@ class MemberRepository:
             )
             return cur.fetchone()
 
+    @tracer.capture_method(name="MemberGetByMobile")
+    def get_by_mobile(self, mobile: str) -> dict | None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, cognito_user_id FROM members WHERE mobile = %s",
+                (mobile,),
+            )
+            return cur.fetchone()
+
     @tracer.capture_method(name="MemberMobileExists")
     def mobile_exists(self, mobile: str) -> bool:
         with self.conn.cursor() as cur:

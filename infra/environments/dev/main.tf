@@ -461,6 +461,21 @@ module "api_gateway" {
       lambda_arn        = module.lambda_function_login.function_arn
       requires_auth     = false
     }
+    "POST /v1/auth/forgot-password" = {
+      lambda_invoke_arn = module.lambda_function_login.invoke_arn
+      lambda_arn        = module.lambda_function_login.function_arn
+      requires_auth     = false
+    }
+    "POST /v1/auth/reset-password" = {
+      lambda_invoke_arn = module.lambda_function_login.invoke_arn
+      lambda_arn        = module.lambda_function_login.function_arn
+      requires_auth     = false
+    }
+    "POST /v1/auth/change-password" = {
+      lambda_invoke_arn = module.lambda_function_login.invoke_arn
+      lambda_arn        = module.lambda_function_login.function_arn
+      requires_auth     = true
+    }
     "POST /v1/events" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn

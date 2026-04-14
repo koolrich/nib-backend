@@ -704,6 +704,149 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /auth/forgot-password:
+    post:
+      summary: Request a password reset code
+      description: |
+        Sends a 6-digit OTP to the member's registered mobile number via SMS.
+        The code expires after 15 minutes.
+        No authentication required.
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mobile:
+                  type: string
+                  example: "+447123456789"
+              required: [mobile]
+      responses:
+        '200':
+          description: Reset code sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Reset code sent"
+        '400':
+          description: Missing mobile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No account found for this mobile number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/reset-password:
+    post:
+      summary: Reset password using OTP code
+      description: |
+        Validates the OTP sent to the member's mobile and sets a new password.
+        No authentication required.
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mobile:
+                  type: string
+                  example: "+447123456789"
+                code:
+                  type: string
+                  example: "123456"
+                new_password:
+                  type: string
+                  example: "NewSecurePass1!"
+              required: [mobile, code, new_password]
+      responses:
+        '200':
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password updated"
+        '400':
+          description: Missing fields, or code is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No account found for this mobile number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: New password does not meet Cognito requirements
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/change-password:
+    post:
+      summary: Change password (authenticated)
+      description: |
+        Changes the authenticated member's password.
+        Requires a valid access token (not id token) in the Authorization header.
+        Cognito verifies the current password before applying the change.
+      operationId: changePassword
+      security:
+        - CognitoJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+              required: [current_password, new_password]
+      responses:
+        '200':
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password updated"
+        '401':
+          description: Current password is incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: New password does not meet Cognito requirements
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /invites/validate:
     post:
       summary: Validate invite code
@@ -808,6 +951,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Authenticated member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Mobile number already registered as a member, or a pending invite already exists for this number
           content:
             application/json:
               schema:

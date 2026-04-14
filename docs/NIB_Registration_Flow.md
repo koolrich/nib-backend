@@ -159,6 +159,35 @@ Backend executes the following in order:
 
 ---
 
+### Forgot Password Flow
+
+**`POST /auth/forgot-password`** — no auth required
+- Body: `mobile`
+- Verifies mobile is a registered member → 404 if not
+- Generates a 6-digit numeric OTP, stores bcrypt hash in `password_reset_tokens` with 15-minute expiry
+- Sends OTP via SNS → sms_dispatcher → Twilio
+- Response: `200 {"message": "Reset code sent"}`
+
+**`POST /auth/reset-password`** — no auth required
+- Body: `mobile`, `code`, `new_password`
+- Looks up latest unused, unexpired token for the mobile → 400 if none
+- Verifies code matches stored hash → 400 if wrong (same error to avoid enumeration)
+- Calls Cognito `AdminSetUserPassword` to update the password
+- Marks token as used
+- Response: `200 {"message": "Password updated"}`
+
+---
+
+### Change Password Flow
+
+**`POST /auth/change-password`** — requires JWT (access token in Authorization header)
+- Body: `current_password`, `new_password`
+- Calls Cognito `ChangePassword` using the caller's access token — Cognito verifies current password
+- Response: `200 {"message": "Password updated"}`
+- Returns `401` if current password is wrong, `422` if new password fails Cognito requirements
+
+---
+
 ## Key Business Rules
 
 - One invite → one user. Once used, the invite cannot be reused
