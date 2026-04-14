@@ -259,3 +259,17 @@ class EventRepository:
     def delete_contribution(self, contribution_id: str):
         with self.conn.cursor() as cur:
             cur.execute("DELETE FROM event_contributions WHERE id = %s", (contribution_id,))
+
+    @tracer.capture_method(name="EventHasContributions")
+    def has_contributions(self, event_id: str) -> bool:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT EXISTS (SELECT 1 FROM event_contributions WHERE event_id = %s)",
+                (event_id,),
+            )
+            return cur.fetchone()["exists"]
+
+    @tracer.capture_method(name="EventDelete")
+    def delete(self, event_id: str):
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM events WHERE id = %s", (event_id,))

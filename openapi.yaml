@@ -989,6 +989,45 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+    delete:
+      summary: Delete an event
+      description: |
+        Delete an upcoming event. Executive or admin only.
+        - pledge events: cannot delete if any items, pledges or contributions exist
+        - contribution events: cannot delete if any contributions exist
+        - general events: no additional checks
+      operationId: deleteEvent
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Event deleted
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Event is completed, or has associated items/pledges/contributions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /events/{id}/items:
     post:
       summary: Add items to a pledge event
@@ -1395,6 +1434,76 @@ paths:
                 $ref: '#/components/schemas/Error'
         '422':
           description: Event completed or pledge cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /event-contributions/{id}:
+    delete:
+      summary: Delete a contribution
+      description: Delete a contribution record. Executive or admin only.
+      operationId: deleteContribution
+      security:
+        - CognitoJWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Contribution deleted
+        '403':
+          description: Executive access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Contribution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /organisation:
+    get:
+      summary: Get organisation bank details
+      description: Returns the organisation's bank account details for payments. All authenticated members can access this.
+      operationId: getOrganisation
+      security:
+        - CognitoJWT: []
+      responses:
+        '200':
+          description: Organisation bank details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account_name:
+                    type: string
+                    example: "Ndi Igbo Basingstoke"
+                  account_number:
+                    type: string
+                    example: "12345678"
+                  sort_code:
+                    type: string
+                    example: "12-34-56"
+                  bank_name:
+                    type: string
+                    example: "Barclays"
+        '403':
+          description: Authenticated member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Organisation details not found
           content:
             application/json:
               schema:

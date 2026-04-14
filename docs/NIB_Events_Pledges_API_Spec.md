@@ -398,7 +398,30 @@ Delete an event item. Exec only.
 
 ---
 
-### 8. `POST /events/:id/pledges`
+### 8. `DELETE /events/:id`
+Delete an event. Exec only.
+
+**Logic:**
+- Verify JWT
+- Verify role IN (`admin`, `executive`) → `403` if not
+- Verify event exists → `404` if not
+- Verify event `status = upcoming` → `422` with message "Cannot delete a completed event"
+- For `pledge` events — verify no `event_items`, `pledges` or `event_contributions` exist against this event → `422` with message "Cannot delete an event that has items, pledges or contributions"
+- For `contribution` events — verify no `event_contributions` exist → `422` with message "Cannot delete an event that has contributions"
+- For `general` events — no additional checks
+- Delete event record
+
+**Response:** `204` — no content
+
+**Errors:**
+- `401` — not authenticated
+- `403` — not an executive or admin
+- `404` — event not found
+- `422` — event is completed, or event has associated data
+
+---
+
+### 9. `POST /events/:id/pledges`
 Create a new pledge against an item.
 
 **Logic:**
@@ -443,7 +466,7 @@ Create a new pledge against an item.
 
 ---
 
-### 9. `PATCH /events/:id/pledges/:pledgeId`
+### 10. `PATCH /events/:id/pledges/:pledgeId`
 Edit an existing pledge quantity.
 
 **Logic:**
@@ -486,7 +509,7 @@ Edit an existing pledge quantity.
 
 ---
 
-### 10. `DELETE /events/:id/pledges/:pledgeId`
+### 11. `DELETE /events/:id/pledges/:pledgeId`
 Cancel a pledge.
 
 **Logic:**
@@ -516,7 +539,7 @@ Cancel a pledge.
 
 ---
 
-### 11. `POST /events/:id/contributions`
+### 12. `POST /events/:id/contributions`
 Record a cash contribution against an event. Exec only.
 
 **Logic:**
@@ -567,7 +590,7 @@ Note — `member_id` is null for anonymous contributions, `pledge_id` is null fo
 
 ---
 
-### 12. `DELETE /event-contributions/:id`
+### 13. `DELETE /event-contributions/:id`
 Delete a contribution record. Exec only.
 
 **Logic:**
@@ -585,7 +608,7 @@ Delete a contribution record. Exec only.
 
 ---
 
-### 13. `GET /members/me/pledges`
+### 14. `GET /members/me/pledges`
 Get all active pledges for the logged in member across all upcoming events.
 
 **Logic:**

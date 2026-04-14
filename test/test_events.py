@@ -29,7 +29,8 @@ PLEDGE = {
 
 def _make_uow(caller=EXEC_MEMBER, event=UPCOMING_EVENT, items=None, pledges=None,
               contributions=None, existing_pledge=None, quantity_remaining=7.0,
-              pledge_row=None, has_contribution=False, has_items_or_pledges=False):
+              pledge_row=None, has_contribution=False, has_items_or_pledges=False,
+              has_contributions=False):
     uow = MagicMock()
     uow.__enter__ = MagicMock(return_value=uow)
     uow.__exit__ = MagicMock(return_value=False)
@@ -49,6 +50,7 @@ def _make_uow(caller=EXEC_MEMBER, event=UPCOMING_EVENT, items=None, pledges=None
         "note": None, "created_at": "2026-04-05T10:00:00",
     }
     uow.events.has_items_or_pledges.return_value = has_items_or_pledges
+    uow.events.has_contributions.return_value = has_contributions
     uow.pledges.get_item_by_id.return_value = EVENT_ITEM
     uow.pledges.get_existing.return_value = existing_pledge
     uow.pledges.get_quantity_remaining.return_value = quantity_remaining
@@ -216,3 +218,68 @@ def test_delete_contribution_not_found_returns_404(mock_uow_cls):
     result = events.handler(_event("DELETE /v1/event-contributions/{id}",
                                    path_params={"id": "contrib-uuid"}), generate_context())
     assert result["statusCode"] == 404
+
+
+# ── DELETE /events/{id} ───────────────────────────────────────────────────────
+
+CONTRIBUTION_EVENT = {**UPCOMING_EVENT, "type": "contribution"}
+GENERAL_EVENT = {**UPCOMING_EVENT, "type": "general"}
+COMPLETED_EVENT = {**UPCOMING_EVENT, "status": "completed"}
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_event_returns_204(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(event=GENERAL_EVENT)
+    result = events.handler(_event("DELETE /v1/events/{id}", path_params={"id": "event-uuid"}), generate_context())
+    assert result["statusCode"] == 204
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_event_requires_executive(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(caller=REGULAR_MEMBER, event=GENERAL_EVENT)
+    result = events.handler(_event("DELETE /v1/events/{id}", path_params={"id": "event-uuid"},
+                                   cognito_sub="member-sub"), generate_context())
+    assert result["statusCode"] == 403
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_event_not_found_returns_404(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(event=None)
+    result = events.handler(_event("DELETE /v1/events/{id}", path_params={"id": "event-uuid"}), generate_context())
+    assert result["statusCode"] == 404
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_completed_event_returns_422(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(event=COMPLETED_EVENT)
+    result = events.handler(_event("DELETE /v1/events/{id}", path_params={"id": "event-uuid"}), generate_context())
+    assert result["statusCode"] == 422
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_pledge_event_with_items_returns_422(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(has_items_or_pledges=True)
+    result = events.handler(_event("DELETE /v1/events/{id}", path_params={"id": "event-uuid"}), generate_context())
+    assert result["statusCode"] == 422
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_pledge_event_with_contributions_returns_422(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(has_contributions=True)
+    result = events.handler(_event("DELETE /v1/events/{id}", path_params={"id": "event-uuid"}), generate_context())
+    assert result["statusCode"] == 422
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_contribution_event_with_contributions_returns_422(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow(event=CONTRIBUTION_EVENT, has_contributions=True)
+    result = events.handler(_event("DELETE /v1/events/{id}", path_params={"id": "event-uuid"}), generate_context())
+    assert result["statusCode"] == 422
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_general_event_ignores_data_checks(mock_uow_cls):
+    # general events can be deleted even if has_items_or_pledges/has_contributions would be true
+    mock_uow_cls.return_value = _make_uow(event=GENERAL_EVENT, has_items_or_pledges=True, has_contributions=True)
+    result = events.handler(_event("DELETE /v1/events/{id}", path_params={"id": "event-uuid"}), generate_context())
+    assert result["statusCode"] == 204

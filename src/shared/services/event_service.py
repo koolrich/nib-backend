@@ -271,6 +271,29 @@ def record_contribution(uow, member: dict, event_id: str, body: dict) -> dict:
     return _response(201, serialize_contribution_insert(row))
 
 
+def delete_event(uow, member: dict, event_id: str) -> dict:
+    err = _require_executive(member)
+    if err:
+        return err
+
+    event = uow.events.get_by_id(event_id)
+    if not event:
+        return _response(404, {"error": "Event not found"})
+    if event["status"] == "completed":
+        return _response(422, {"error": "Cannot delete a completed event"})
+
+    event_type = event["type"]
+    if event_type == "pledge":
+        if uow.events.has_items_or_pledges(event_id) or uow.events.has_contributions(event_id):
+            return _response(422, {"error": "Cannot delete an event that has items, pledges or contributions"})
+    elif event_type == "contribution":
+        if uow.events.has_contributions(event_id):
+            return _response(422, {"error": "Cannot delete an event that has contributions"})
+
+    uow.events.delete(event_id)
+    return {"statusCode": 204, "body": ""}
+
+
 def delete_contribution(uow, member: dict, contribution_id: str) -> dict:
     err = _require_executive(member)
     if err:

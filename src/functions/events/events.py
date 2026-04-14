@@ -6,7 +6,7 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.instrumentation.tracer import tracer
 from shared.services.event_service import (
-    create_event, list_events, get_event, patch_event,
+    create_event, list_events, get_event, patch_event, delete_event,
     add_items, patch_item, delete_item,
     create_pledge, update_pledge, cancel_pledge, record_contribution, delete_contribution,
 )
@@ -48,6 +48,9 @@ def handler(event: Dict[str, Any], context: LambdaContext):
 
             if route_key == "PATCH /v1/events/{id}":
                 return patch_event(uow, member, path_params["id"], body)
+
+            if route_key == "DELETE /v1/events/{id}":
+                return delete_event(uow, member, path_params["id"])
 
             if route_key == "POST /v1/events/{id}/items":
                 return add_items(uow, member, path_params["id"], body)

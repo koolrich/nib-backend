@@ -4,16 +4,50 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "https://<api-id>.execute-api.eu-west-2.amazonaws.com" },
-    { "key": "token", "value": "" },
-    { "key": "activation_code", "value": "" },
-    { "key": "member_id", "value": "" },
-    { "key": "event_id", "value": "" },
-    { "key": "event_item_id", "value": "" },
-    { "key": "pledge_id", "value": "" },
-    { "key": "invoice_id", "value": "" },
-    { "key": "payment_id", "value": "" },
-    { "key": "refresh_token", "value": "" }
+    {
+      "key": "base_url",
+      "value": "https://<api-id>.execute-api.eu-west-2.amazonaws.com"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "activation_code",
+      "value": ""
+    },
+    {
+      "key": "member_id",
+      "value": ""
+    },
+    {
+      "key": "event_id",
+      "value": ""
+    },
+    {
+      "key": "event_item_id",
+      "value": ""
+    },
+    {
+      "key": "pledge_id",
+      "value": ""
+    },
+    {
+      "key": "invoice_id",
+      "value": ""
+    },
+    {
+      "key": "payment_id",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "contribution_id",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -35,7 +69,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{base_url}}/v1/auth/login",
             "body": {
               "mode": "raw",
@@ -58,7 +97,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{base_url}}/v1/auth/refresh",
             "body": {
               "mode": "raw",
@@ -76,8 +120,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/invites",
             "body": {
@@ -103,7 +153,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{base_url}}/v1/invites/validate",
             "body": {
               "mode": "raw",
@@ -120,7 +175,12 @@
           "name": "Register",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{base_url}}/v1/auth/register",
             "body": {
               "mode": "raw",
@@ -149,8 +209,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/events",
             "body": {
@@ -163,7 +229,12 @@
           "name": "List Events",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/events"
           }
         },
@@ -171,7 +242,12 @@
           "name": "Get Event",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/events/{{event_id}}"
           }
         },
@@ -180,14 +256,33 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/events/{{event_id}}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"completed\"\n}"
             }
+          }
+        },
+        {
+          "name": "Delete Event",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{base_url}}/v1/events/{{event_id}}"
           }
         },
         {
@@ -206,8 +301,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/events/{{event_id}}/items",
             "body": {
@@ -221,8 +322,14 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/events/{{event_id}}/items/{{event_item_id}}",
             "body": {
@@ -235,7 +342,12 @@
           "name": "Delete Event Item",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/events/{{event_id}}/items/{{event_item_id}}"
           }
         },
@@ -255,8 +367,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/events/{{event_id}}/pledges",
             "body": {
@@ -270,8 +388,14 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/events/{{event_id}}/pledges/{{pledge_id}}",
             "body": {
@@ -284,7 +408,12 @@
           "name": "Cancel Pledge",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/events/{{event_id}}/pledges/{{pledge_id}}"
           }
         },
@@ -293,14 +422,44 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/events/{{event_id}}/contributions",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"member_id\": \"{{member_id}}\",\n  \"pledge_id\": \"{{pledge_id}}\",\n  \"amount\": 50.00,\n  \"received_at\": \"2026-08-12T14:00:00Z\",\n  \"note\": \"Cash collected at meeting\"\n}"
             }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.id) { pm.collectionVariables.set(\"contribution_id\", body.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Contribution",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{base_url}}/v1/event-contributions/{{contribution_id}}"
           }
         }
       ]
@@ -323,7 +482,12 @@
           ],
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/members/me"
           }
         },
@@ -331,7 +495,12 @@
           "name": "Get My Pledges",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/members/me/pledges"
           }
         },
@@ -339,13 +508,27 @@
           "name": "List Members",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{base_url}}/v1/members",
-              "host": ["{{base_url}}"],
-              "path": ["v1", "members"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "members"
+              ],
               "query": [
-                { "key": "search", "value": "", "disabled": true }
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
               ]
             }
           }
@@ -354,7 +537,12 @@
           "name": "Get Member By ID",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/members/{{member_id}}"
           }
         },
@@ -363,14 +551,33 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/members/{{member_id}}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"town\": \"Basingstoke\",\n  \"post_code\": \"RG21 2AA\"\n}"
             }
+          }
+        },
+        {
+          "name": "Get Organisation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{base_url}}/v1/organisation"
           }
         }
       ]
@@ -394,8 +601,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": "{{base_url}}/v1/invoices/{{invoice_id}}/payments",
             "body": {
@@ -408,7 +621,12 @@
           "name": "Get Member Statement",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/members/{{member_id}}/statement"
           }
         },
@@ -416,7 +634,12 @@
           "name": "Delete Payment",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": "{{base_url}}/v1/payments/{{payment_id}}"
           }
         }
