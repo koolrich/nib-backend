@@ -5,7 +5,7 @@ from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from shared.instrumentation.tracer import tracer
-from shared.services.member_service import get_my_profile, get_my_pledges, patch_member, get_member_profile, list_members
+from shared.services.member_service import get_my_profile, get_my_pledges, patch_member, get_member_profile, list_members, get_organisation
 from shared.uow.member_uow import MemberUoW
 
 logger = Logger()
@@ -48,6 +48,9 @@ def handler(event: Dict[str, Any], context: LambdaContext):
 
             if route_key == "PATCH /v1/members/{id}":
                 return patch_member(uow, caller, path_params["id"], body)
+
+            if route_key == "GET /v1/organisation":
+                return get_organisation(uow)
 
             return _response(404, {"error": "Route not found"})
 

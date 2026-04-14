@@ -189,6 +189,7 @@ class EventRepository:
                 JOIN members m ON m.id = p.member_id
                 JOIN event_items ei ON ei.id = p.event_item_id
                 WHERE p.event_id = %s
+                  AND p.status = 'pledged'
                 ORDER BY p.created_at
                 """,
                 (event_id,),
@@ -227,3 +228,17 @@ class EventRepository:
                 (event_id, member_id, pledge_id, amount, recorded_by, received_at, note),
             )
             return cur.fetchone()
+
+    @tracer.capture_method(name="EventGetContributionById")
+    def get_contribution_by_id(self, contribution_id: str) -> dict | None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM event_contributions WHERE id = %s",
+                (contribution_id,),
+            )
+            return cur.fetchone()
+
+    @tracer.capture_method(name="EventDeleteContribution")
+    def delete_contribution(self, contribution_id: str):
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM event_contributions WHERE id = %s", (contribution_id,))

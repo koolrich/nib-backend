@@ -1,7 +1,7 @@
 import json
 
 from aws_lambda_powertools import Logger
-from shared.serializers.member_serializers import serialize_member, serialize_member_pledge, serialize_member_list_item
+from shared.serializers.member_serializers import serialize_member, serialize_member_pledge, serialize_member_list_item, serialize_organisation
 
 logger = Logger()
 
@@ -33,6 +33,13 @@ def list_members(uow, caller: dict, search: str | None = None) -> dict:
     is_exec = caller["member_role"] in ("executive", "admin")
     rows = uow.members.get_all(search=search)
     return _response(200, {"members": [serialize_member_list_item(r, is_exec=is_exec) for r in rows]})
+
+
+def get_organisation(uow) -> dict:
+    row = uow.organisation.get()
+    if not row:
+        return _response(404, {"error": "Organisation details not found"})
+    return _response(200, serialize_organisation(row))
 
 
 def patch_member(uow, caller: dict, target_member_id: str, body: dict) -> dict:

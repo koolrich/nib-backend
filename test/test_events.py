@@ -180,3 +180,39 @@ def test_cancel_pledge_with_contribution_returns_422(mock_uow_cls):
                                    path_params={"id": "event-uuid", "pledgeId": "pledge-uuid"},
                                    cognito_sub="member-sub"), generate_context())
     assert result["statusCode"] == 422
+
+
+# ── DELETE /event-contributions/{id} ──────────────────────────────────────────
+
+CONTRIBUTION = {"id": "contrib-uuid"}
+
+
+def _make_uow_contrib(caller=EXEC_MEMBER, contribution=CONTRIBUTION):
+    uow = _make_uow(caller=caller)
+    uow.events.get_contribution_by_id.return_value = contribution
+    return uow
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_contribution_returns_204(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow_contrib()
+    result = events.handler(_event("DELETE /v1/event-contributions/{id}",
+                                   path_params={"id": "contrib-uuid"}), generate_context())
+    assert result["statusCode"] == 204
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_contribution_requires_executive(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow_contrib(caller=REGULAR_MEMBER)
+    result = events.handler(_event("DELETE /v1/event-contributions/{id}",
+                                   path_params={"id": "contrib-uuid"},
+                                   cognito_sub="member-sub"), generate_context())
+    assert result["statusCode"] == 403
+
+
+@patch("functions.events.events.EventUoW")
+def test_delete_contribution_not_found_returns_404(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow_contrib(contribution=None)
+    result = events.handler(_event("DELETE /v1/event-contributions/{id}",
+                                   path_params={"id": "contrib-uuid"}), generate_context())
+    assert result["statusCode"] == 404

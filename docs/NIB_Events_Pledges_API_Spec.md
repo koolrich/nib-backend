@@ -567,7 +567,25 @@ Note — `member_id` is null for anonymous contributions, `pledge_id` is null fo
 
 ---
 
-### 12. `GET /members/me/pledges`
+### 12. `DELETE /event-contributions/:id`
+Delete a contribution record. Exec only.
+
+**Logic:**
+- Verify JWT
+- Verify role IN (`admin`, `executive`) → `403` if not
+- Verify contribution exists → `404` if not
+- Delete contribution record
+
+**Response:** `204` — no content
+
+**Errors:**
+- `401` — not authenticated
+- `403` — not an executive or admin
+- `404` — contribution not found
+
+---
+
+### 13. `GET /members/me/pledges`
 Get all active pledges for the logged in member across all upcoming events.
 
 **Logic:**

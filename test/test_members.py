@@ -49,6 +49,12 @@ def _make_uow(caller=MEMBER, pledges=None, member_profile=MEMBER_PROFILE, update
     uow.members.update.return_value = update_result
     uow.members.get_all.return_value = member_list if member_list is not None else [MEMBER_LIST_ITEM]
     uow.pledges.get_by_member.return_value = pledges if pledges is not None else []
+    uow.organisation.get.return_value = {
+        "account_name": "Ndi Igbo Basingstoke",
+        "account_number": "12345678",
+        "sort_code": "12-34-56",
+        "bank_name": "Barclays",
+    }
     return uow
 
 
@@ -174,3 +180,26 @@ def test_list_members_exec_sees_payment_status(mock_uow_cls):
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
     assert "payment_status" in body["members"][0]
+
+
+# ── GET /organisation ──────────────────────────────────────────────────────────
+
+@patch("functions.members.members.MemberUoW")
+def test_get_organisation_returns_200(mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
+    result = members.handler(_event("GET /v1/organisation"), generate_context())
+    assert result["statusCode"] == 200
+    body = json.loads(result["body"])
+    assert body["account_name"] == "Ndi Igbo Basingstoke"
+    assert body["account_number"] == "12345678"
+    assert body["sort_code"] == "12-34-56"
+    assert body["bank_name"] == "Barclays"
+
+
+@patch("functions.members.members.MemberUoW")
+def test_get_organisation_not_found_returns_404(mock_uow_cls):
+    uow = _make_uow()
+    uow.organisation.get.return_value = None
+    mock_uow_cls.return_value = uow
+    result = members.handler(_event("GET /v1/organisation"), generate_context())
+    assert result["statusCode"] == 404

@@ -8,7 +8,7 @@ from shared.instrumentation.tracer import tracer
 from shared.services.event_service import (
     create_event, list_events, get_event, patch_event,
     add_items, patch_item, delete_item,
-    create_pledge, update_pledge, cancel_pledge, record_contribution,
+    create_pledge, update_pledge, cancel_pledge, record_contribution, delete_contribution,
 )
 from shared.uow.event_uow import EventUoW
 
@@ -69,6 +69,9 @@ def handler(event: Dict[str, Any], context: LambdaContext):
 
             if route_key == "POST /v1/events/{id}/contributions":
                 return record_contribution(uow, member, path_params["id"], body)
+
+            if route_key == "DELETE /v1/event-contributions/{id}":
+                return delete_contribution(uow, member, path_params["id"])
 
             return _response(404, {"error": "Route not found"})
 

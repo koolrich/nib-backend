@@ -40,6 +40,15 @@ def serialize_member_list_item(row, is_exec: bool = False) -> dict:
     return result
 
 
+def serialize_organisation(row) -> dict:
+    return {
+        "account_name": row["account_name"],
+        "account_number": row["account_number"],
+        "sort_code": row["sort_code"],
+        "bank_name": row["bank_name"],
+    }
+
+
 def serialize_member_pledge(row) -> dict:
     contribution = None
     if row["contribution_amount"] is not None:

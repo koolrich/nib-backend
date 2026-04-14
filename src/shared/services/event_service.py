@@ -269,3 +269,15 @@ def record_contribution(uow, member: dict, event_id: str, body: dict) -> dict:
     row = uow.events.insert_contribution(event_id, member_id, pledge_id, amount,
                                          str(member["id"]), received_at, note)
     return _response(201, serialize_contribution_insert(row))
+
+
+def delete_contribution(uow, member: dict, contribution_id: str) -> dict:
+    err = _require_executive(member)
+    if err:
+        return err
+
+    if not uow.events.get_contribution_by_id(contribution_id):
+        return _response(404, {"error": "Contribution not found"})
+
+    uow.events.delete_contribution(contribution_id)
+    return {"statusCode": 204, "body": ""}
