@@ -352,7 +352,7 @@ module "lambda_function_login" {
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.login.login.handler"
   lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
-  lambda_environment_variables = { ENV = var.environment }
+  lambda_environment_variables = { ENV = var.environment, SMS_TOPIC_ARN = aws_sns_topic.sms.arn }
   vpc_subnet_ids               = module.vpc.lambda_subnet_ids
   vpc_id                       = module.vpc.vpc_id
   lambda_sg_id                 = module.vpc.lambda_sg_id
@@ -450,6 +450,21 @@ module "api_gateway" {
       lambda_arn        = module.lambda_function_login.function_arn
       requires_auth     = false
     }
+    "POST /v1/auth/forgot-password" = {
+      lambda_invoke_arn = module.lambda_function_login.invoke_arn
+      lambda_arn        = module.lambda_function_login.function_arn
+      requires_auth     = false
+    }
+    "POST /v1/auth/reset-password" = {
+      lambda_invoke_arn = module.lambda_function_login.invoke_arn
+      lambda_arn        = module.lambda_function_login.function_arn
+      requires_auth     = false
+    }
+    "POST /v1/auth/change-password" = {
+      lambda_invoke_arn = module.lambda_function_login.invoke_arn
+      lambda_arn        = module.lambda_function_login.function_arn
+      requires_auth     = true
+    }
     "POST /v1/events" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
@@ -480,6 +495,11 @@ module "api_gateway" {
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
     }
+    "DELETE /v1/events/{id}" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
     "DELETE /v1/events/{id}/items/{itemId}" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
@@ -501,6 +521,11 @@ module "api_gateway" {
       requires_auth     = true
     }
     "POST /v1/events/{id}/contributions" = {
+      lambda_invoke_arn = module.lambda_function_events.invoke_arn
+      lambda_arn        = module.lambda_function_events.function_arn
+      requires_auth     = true
+    }
+    "DELETE /v1/event-contributions/{id}" = {
       lambda_invoke_arn = module.lambda_function_events.invoke_arn
       lambda_arn        = module.lambda_function_events.function_arn
       requires_auth     = true
@@ -541,6 +566,11 @@ module "api_gateway" {
       requires_auth     = true
     }
     "PATCH /v1/members/{id}" = {
+      lambda_invoke_arn = module.lambda_function_members.invoke_arn
+      lambda_arn        = module.lambda_function_members.function_arn
+      requires_auth     = true
+    }
+    "GET /v1/organisation" = {
       lambda_invoke_arn = module.lambda_function_members.invoke_arn
       lambda_arn        = module.lambda_function_members.function_arn
       requires_auth     = true

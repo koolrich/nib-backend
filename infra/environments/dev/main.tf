@@ -363,7 +363,7 @@ module "lambda_function_login" {
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.login.login.handler"
   lambda_layer_arn             = aws_lambda_layer_version.shared_layer.arn
-  lambda_environment_variables = { ENV = var.environment }
+  lambda_environment_variables = { ENV = var.environment, SMS_TOPIC_ARN = aws_sns_topic.sms.arn }
   vpc_subnet_ids               = module.vpc.lambda_subnet_ids
   vpc_id                       = module.vpc.vpc_id
   lambda_sg_id                 = module.vpc.lambda_sg_id
