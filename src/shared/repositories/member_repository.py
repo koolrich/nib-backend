@@ -30,7 +30,7 @@ class MemberRepository:
     def get_by_mobile(self, mobile: str) -> dict | None:
         with self.conn.cursor() as cur:
             cur.execute(
-                "SELECT id, cognito_user_id FROM members WHERE mobile = %s",
+                "SELECT id, mobile, cognito_user_id FROM members WHERE mobile = %s",
                 (mobile,),
             )
             return cur.fetchone()

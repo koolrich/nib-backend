@@ -89,7 +89,7 @@ def reset_password(uow, mobile: str, code: str, new_password: str) -> dict:
         return {"statusCode": 400, "body": json.dumps({"error": "Reset code is invalid or has expired"})}
 
     try:
-        set_password(member["cognito_user_id"], new_password)
+        set_password(member["mobile"], new_password)
     except ClientError as ce:
         error_code = ce.response["Error"]["Code"]
         if error_code == "InvalidPasswordException":
@@ -124,7 +124,7 @@ def change_password_service(uow, cognito_sub: str, current_password: str, new_pa
 
     # Set new password via admin operation
     try:
-        set_password(mobile_row["cognito_user_id"], new_password)
+        set_password(mobile_row["mobile"], new_password)
         return {"statusCode": 200, "body": json.dumps({"message": "Password updated"})}
     except ClientError as ce:
         if ce.response["Error"]["Code"] == "InvalidPasswordException":
