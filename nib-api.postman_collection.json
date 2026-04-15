@@ -160,7 +160,7 @@
               },
               {
                 "key": "Authorization",
-                "value": "Bearer {{access_token}}"
+                "value": "Bearer {{token}}"
               }
             ],
             "url": "{{base_url}}/v1/auth/change-password",

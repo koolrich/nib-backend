@@ -103,16 +103,6 @@ def set_password(cognito_username: str, new_password: str):
     )
 
 
-@tracer.capture_method(name="CognitoChangePassword")
-def change_password(access_token: str, current_password: str, new_password: str):
-    """Change password using the caller's access token — verifies current password."""
-    client = _get_client()
-    client.change_password(
-        AccessToken=access_token,
-        PreviousPassword=current_password,
-        ProposedPassword=new_password,
-    )
-
 
 @tracer.capture_method(name="CognitoInitiateAuth")
 def initiate_auth(mobile: str, password: str) -> dict:

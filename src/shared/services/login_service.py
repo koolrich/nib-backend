@@ -8,7 +8,7 @@ import boto3
 from aws_lambda_powertools import Logger
 from botocore.exceptions import ClientError
 
-from shared.services.cognito_service import initiate_auth, refresh_auth, set_password, change_password as cognito_change_password
+from shared.services.cognito_service import initiate_auth, refresh_auth, set_password
 
 logger = Logger()
 
@@ -101,20 +101,35 @@ def reset_password(uow, mobile: str, code: str, new_password: str) -> dict:
     return {"statusCode": 200, "body": json.dumps({"message": "Password updated"})}
 
 
-def change_password_service(access_token: str, current_password: str, new_password: str) -> dict:
-    if not access_token or not current_password or not new_password:
-        return {"statusCode": 400, "body": json.dumps({"error": "access_token, current_password and new_password are required"})}
+def change_password_service(uow, cognito_sub: str, current_password: str, new_password: str) -> dict:
+    if not current_password or not new_password:
+        return {"statusCode": 400, "body": json.dumps({"error": "current_password and new_password are required"})}
 
+    member = uow.members.get_by_cognito_sub(cognito_sub)
+    if not member:
+        return {"statusCode": 403, "body": json.dumps({"error": "Member not found"})}
+
+    mobile_row = uow.members.get_mobile_and_cognito_by_id(str(member["id"]))
+    if not mobile_row:
+        return {"statusCode": 403, "body": json.dumps({"error": "Member not found"})}
+
+    # Verify current password by attempting auth
     try:
-        cognito_change_password(access_token, current_password, new_password)
+        initiate_auth(mobile_row["mobile"], current_password)
+    except ClientError as ce:
+        if ce.response["Error"]["Code"] in ("NotAuthorizedException", "UserNotFoundException"):
+            return {"statusCode": 401, "body": json.dumps({"error": "Current password is incorrect"})}
+        logger.exception("Cognito error verifying current password", extra={"error": str(ce)})
+        return {"statusCode": 500, "body": json.dumps({"error": "Failed to verify current password"})}
+
+    # Set new password via admin operation
+    try:
+        set_password(mobile_row["cognito_user_id"], new_password)
         return {"statusCode": 200, "body": json.dumps({"message": "Password updated"})}
     except ClientError as ce:
-        error_code = ce.response["Error"]["Code"]
-        if error_code == "NotAuthorizedException":
-            return {"statusCode": 401, "body": json.dumps({"error": "Current password is incorrect"})}
-        if error_code == "InvalidPasswordException":
+        if ce.response["Error"]["Code"] == "InvalidPasswordException":
             return {"statusCode": 422, "body": json.dumps({"error": "Password does not meet requirements"})}
-        logger.exception("Cognito error during password change", extra={"error": str(ce)})
+        logger.exception("Cognito error setting new password", extra={"error": str(ce)})
         return {"statusCode": 500, "body": json.dumps({"error": "Failed to update password"})}
 
 

@@ -806,8 +806,7 @@ paths:
       summary: Change password (authenticated)
       description: |
         Changes the authenticated member's password.
-        Requires a valid access token (not id token) in the Authorization header.
-        Cognito verifies the current password before applying the change.
+        Verifies the current password before applying the change.
       operationId: changePassword
       security:
         - CognitoJWT: []

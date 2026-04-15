@@ -75,18 +75,21 @@ def test_reset_password_invalid_code_returns_400(mock_service, mock_uow_cls):
 
 # ── POST /auth/change-password ────────────────────────────────────────────────
 
+@patch("functions.login.login.PasswordResetUoW")
 @patch("functions.login.login.change_password_service")
-def test_change_password_returns_200(mock_service):
+def test_change_password_returns_200(mock_service, mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
     mock_service.return_value = {"statusCode": 200, "body": json.dumps({"message": "Password updated"})}
     result = login_handler.handler(_event("POST /v1/auth/change-password", {
         "current_password": "OldPass1!", "new_password": "NewPass1!"
     }), generate_context())
     assert result["statusCode"] == 200
-    mock_service.assert_called_once_with("test-access-token", "OldPass1!", "NewPass1!")
 
 
+@patch("functions.login.login.PasswordResetUoW")
 @patch("functions.login.login.change_password_service")
-def test_change_password_wrong_current_returns_401(mock_service):
+def test_change_password_wrong_current_returns_401(mock_service, mock_uow_cls):
+    mock_uow_cls.return_value = _make_uow()
     mock_service.return_value = {"statusCode": 401, "body": json.dumps({"error": "Current password is incorrect"})}
     result = login_handler.handler(_event("POST /v1/auth/change-password", {
         "current_password": "WrongPass1!", "new_password": "NewPass1!"

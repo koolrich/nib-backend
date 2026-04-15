@@ -49,9 +49,9 @@ def handler(event: Dict[str, Any], context: LambdaContext):
 
     if route_key == "POST /v1/auth/change-password":
         try:
-            auth_header = (event.get("headers") or {}).get("authorization", "")
-            access_token = auth_header.removeprefix("Bearer ").strip()
-            return change_password_service(access_token, body.get("current_password"), body.get("new_password"))
+            cognito_sub = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]
+            with PasswordResetUoW() as uow:
+                return change_password_service(uow, cognito_sub, body.get("current_password"), body.get("new_password"))
         except Exception as e:
             logger.exception("Unexpected error during password change", extra={"error": str(e)})
             return {"statusCode": 500, "body": json.dumps({"error": "An unexpected error occurred"})}
