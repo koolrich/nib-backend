@@ -19,7 +19,7 @@ resource "aws_vpc_endpoint" "this" {
 }
 
 resource "aws_security_group" "vpc_interface_endpoints_sg" {
-  name        = "nib-interface-endpoints-sg"
+  name        = "nib-interface-endpoints-sg-${var.environment}"
   description = "Security group for VPC interface endpoints"
   vpc_id      = var.vpc_id
 

@@ -3,9 +3,6 @@ locals {
     Project = var.project
     Environment = var.environment
   }
-  lambda_sg_name = "nib-lambda-sg"
-  db_subnet_group_name = "nib-db-subnet-group"
-  db_sg_name = "nib_db_sg"
 }
 
 resource "aws_vpc" "nib_vpc" {
