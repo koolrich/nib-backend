@@ -1,9 +1,14 @@
+import os
+
 import boto3
 import psycopg
 from psycopg.rows import dict_row
 
 _cached_params = {}
 _connection = None
+
+_env = os.environ["ENV"]
+_SSM_PREFIX = f"/nib/{_env}/db"
 
 
 def preload_params():
@@ -12,11 +17,11 @@ def preload_params():
 
     ssm = boto3.client("ssm")
     param_names = [
-        "/nib/db/host",
-        "/nib/db/name",
-        "/nib/db/username",
-        "/nib/db/password",
-        "/nib/db/port",
+        f"{_SSM_PREFIX}/host",
+        f"{_SSM_PREFIX}/name",
+        f"{_SSM_PREFIX}/username",
+        f"{_SSM_PREFIX}/password",
+        f"{_SSM_PREFIX}/port",
     ]
 
     response = ssm.get_parameters(Names=param_names, WithDecryption=True)
@@ -28,11 +33,11 @@ def preload_params():
 
 def _open_connection(params):
     return psycopg.connect(
-        host=params["/nib/db/host"],
-        dbname=params["/nib/db/name"],
-        user=params["/nib/db/username"],
-        password=params["/nib/db/password"],
-        port=params["/nib/db/port"],
+        host=params[f"{_SSM_PREFIX}/host"],
+        dbname=params[f"{_SSM_PREFIX}/name"],
+        user=params[f"{_SSM_PREFIX}/username"],
+        password=params[f"{_SSM_PREFIX}/password"],
+        port=params[f"{_SSM_PREFIX}/port"],
         row_factory=dict_row,
     )
 

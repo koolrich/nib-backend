@@ -42,7 +42,7 @@ resource "random_password" "db_password" {
 }
 
 resource "aws_ssm_parameter" "db_username" {
-  name        = "/nib/db/username"
+  name        = "/nib/${var.environment}/db/username"
   type        = "String"
   value       = var.db_user
   description = "RDS DB User"
@@ -51,7 +51,7 @@ resource "aws_ssm_parameter" "db_username" {
 }
 
 resource "aws_ssm_parameter" "db_password" {
-  name        = "/nib/db/password"
+  name        = "/nib/${var.environment}/db/password"
   type        = "SecureString"
   value       = random_password.db_password.result
   description = "RDS DB Password"
@@ -60,7 +60,7 @@ resource "aws_ssm_parameter" "db_password" {
 }
 
 resource "aws_db_instance" "nib_db" {
-  identifier             = "nib-db"
+  identifier             = "nib-db-${var.environment}"
   engine                 = "postgres"
   engine_version         = "15.13"
   instance_class         = "db.t4g.micro"
@@ -76,12 +76,12 @@ resource "aws_db_instance" "nib_db" {
   skip_final_snapshot    = true
 
   tags = merge(local.common_tags, {
-    Name = "nib-db"
+    Name = "nib-db-${var.environment}"
   })
 }
 
 resource "aws_ssm_parameter" "db_host" {
-  name        = "/nib/db/host"
+  name        = "/nib/${var.environment}/db/host"
   type        = "String"
   value       = aws_db_instance.nib_db.address
   description = "RDS DB Host"
@@ -89,7 +89,7 @@ resource "aws_ssm_parameter" "db_host" {
 }
 
 resource "aws_ssm_parameter" "db_port" {
-  name        = "/nib/db/port"
+  name        = "/nib/${var.environment}/db/port"
   type        = "String"
   value       = aws_db_instance.nib_db.port
   description = "RDS DB Port"
@@ -97,7 +97,7 @@ resource "aws_ssm_parameter" "db_port" {
 }
 
 resource "aws_ssm_parameter" "db_name" {
-  name        = "/nib/db/name"
+  name        = "/nib/${var.environment}/db/name"
   type        = "String"
   value       = aws_db_instance.nib_db.db_name
   description = "RDS DB Name"
