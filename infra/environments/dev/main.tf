@@ -243,7 +243,7 @@ resource "aws_lambda_function" "sms_dispatcher" {
   handler          = "src.functions.sms_dispatcher.sms_dispatcher.handler"
   runtime          = "python3.13"
   s3_bucket        = var.lambda_artifact_bucket
-  s3_key           = "functions/sms_dispatcher.zip"
+  s3_key           = "dev/functions/sms_dispatcher.zip"
   source_code_hash = filebase64sha256("sms_dispatcher.zip")
   layers           = [aws_lambda_layer_version.shared_layer.arn]
   timeout          = 30
@@ -294,7 +294,7 @@ resource "aws_ssm_parameter" "cognito_app_client_id" {
 
 resource "aws_lambda_layer_version" "shared_layer" {
   s3_bucket           = var.lambda_artifact_bucket
-  s3_key              = "layers/layer.zip"
+  s3_key              = "dev/layers/layer.zip"
   layer_name          = "shared_layer"
   compatible_runtimes = ["python3.13"]
   source_code_hash = filebase64sha256("layer.zip")
@@ -303,7 +303,7 @@ resource "aws_lambda_layer_version" "shared_layer" {
 module "lambda_function_send_invite" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
-  lambda_s3_key                = "functions/send_invite.zip"
+  lambda_s3_key                = "dev/functions/send_invite.zip"
   lambda_function_name         = "send_invite"
   source_code_hash             = filebase64sha256("send_invite.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
@@ -321,7 +321,7 @@ module "lambda_function_send_invite" {
 module "lambda_function_validate_invite" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
-  lambda_s3_key                = "functions/validate_invite.zip"
+  lambda_s3_key                = "dev/functions/validate_invite.zip"
   lambda_function_name         = "validate_invite"
   source_code_hash             = filebase64sha256("validate_invite.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
@@ -339,7 +339,7 @@ module "lambda_function_validate_invite" {
 module "lambda_function_register" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
-  lambda_s3_key                = "functions/register.zip"
+  lambda_s3_key                = "dev/functions/register.zip"
   lambda_function_name         = "register"
   source_code_hash             = filebase64sha256("register.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
@@ -357,7 +357,7 @@ module "lambda_function_register" {
 module "lambda_function_login" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
-  lambda_s3_key                = "functions/login.zip"
+  lambda_s3_key                = "dev/functions/login.zip"
   lambda_function_name         = "login"
   source_code_hash             = filebase64sha256("login.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
@@ -375,7 +375,7 @@ module "lambda_function_login" {
 module "lambda_function_events" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
-  lambda_s3_key                = "functions/events.zip"
+  lambda_s3_key                = "dev/functions/events.zip"
   lambda_function_name         = "events"
   source_code_hash             = filebase64sha256("events.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
@@ -394,7 +394,7 @@ module "lambda_function_events" {
 module "lambda_function_payments" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
-  lambda_s3_key                = "functions/payments.zip"
+  lambda_s3_key                = "dev/functions/payments.zip"
   lambda_function_name         = "payments"
   source_code_hash             = filebase64sha256("payments.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
@@ -412,7 +412,7 @@ module "lambda_function_payments" {
 module "lambda_function_members" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
-  lambda_s3_key                = "functions/members.zip"
+  lambda_s3_key                = "dev/functions/members.zip"
   lambda_function_name         = "members"
   source_code_hash             = filebase64sha256("members.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn

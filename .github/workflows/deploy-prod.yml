@@ -48,18 +48,18 @@ jobs:
           for fn in src/functions/*; do
             name=$(basename "$fn")
             zip -r "$name.zip" "$fn" -x "*__pycache__/*" -x "*.pyc"
-            aws s3 cp "$name.zip" "s3://$S3_BUCKET/functions/$name.zip"
+            aws s3 cp "$name.zip" "s3://$S3_BUCKET/prod/functions/$name.zip"
             cp "$name.zip" infra/environments/prod/
           done
 
       - name: Upload Layer Artifact to S3
         run: |
-          aws s3 cp "$GITHUB_WORKSPACE/layer.zip" s3://$S3_BUCKET/layers/layer.zip
+          aws s3 cp "$GITHUB_WORKSPACE/layer.zip" s3://$S3_BUCKET/prod/layers/layer.zip
 
       - name: Package and Upload Migrations Folder
         run: |
           zip -r migrations.zip migrations/
-          aws s3 cp migrations.zip s3://$S3_BUCKET/db-migrations/migrations.zip
+          aws s3 cp migrations.zip s3://$S3_BUCKET/prod/db-migrations/migrations.zip
 
       - name: Set up Terraform CLI
         uses: hashicorp/setup-terraform@v2
