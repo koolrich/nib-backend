@@ -23,9 +23,9 @@ module "vpc" {
   project        = var.project
   cidr_block     = var.vpc_cidr
   aws_region     = var.aws_region
-  name           = "nib-vpc"
+  name           = "nib-vpc-${var.environment}"
   subnets        = var.subnets
-  lambda_sg_name = "nib-lambda-sg"
+  lambda_sg_name = "nib-lambda-sg-${var.environment}"
   environment    = var.environment
 }
 
@@ -33,11 +33,11 @@ module "db" {
   source               = "../../modules/db"
   db_user              = var.db_user
   db_name              = var.db_name
-  db_sg_name           = "nib-db-sg"
+  db_sg_name           = "nib-db-sg-${var.environment}"
   subnet_ids           = module.vpc.db_subnet_ids
   vpc_id               = module.vpc.vpc_id
   lambda_sg_id         = module.vpc.lambda_sg_id
-  db_subnet_group_name = "nib-db-subnet-group"
+  db_subnet_group_name = "nib-db-subnet-group-${var.environment}"
   project              = var.project
   environment          = var.environment
 }
@@ -45,8 +45,8 @@ module "db" {
 module "cognito" {
   source            = "../../modules/cognito"
   project           = var.project
-  user_pool_name    = "nib-user-pool"
-  app_client_name   = "nib-app-client"
+  user_pool_name    = "nib-user-pool-${var.environment}"
+  app_client_name   = "nib-app-client-${var.environment}"
   explicit_auth_flows = [
     "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
@@ -207,21 +207,21 @@ resource "aws_sns_topic" "sms" {
 }
 
 resource "aws_ssm_parameter" "twilio_account_sid" {
-  name  = "/nib/twilio/account_sid"
+  name  = "/nib/${var.environment}/twilio/account_sid"
   type  = "SecureString"
   value = var.twilio_account_sid
   tags  = local.common_tags
 }
 
 resource "aws_ssm_parameter" "twilio_auth_token" {
-  name  = "/nib/twilio/auth_token"
+  name  = "/nib/${var.environment}/twilio/auth_token"
   type  = "SecureString"
   value = var.twilio_auth_token
   tags  = local.common_tags
 }
 
 resource "aws_ssm_parameter" "twilio_from_number" {
-  name  = "/nib/twilio/from_number"
+  name  = "/nib/${var.environment}/twilio/from_number"
   type  = "String"
   value = var.twilio_from_number
   tags  = local.common_tags
@@ -229,7 +229,7 @@ resource "aws_ssm_parameter" "twilio_from_number" {
 
 # sms_dispatcher runs outside the VPC so it can reach api.twilio.com
 resource "aws_lambda_function" "sms_dispatcher" {
-  function_name    = "sms_dispatcher"
+  function_name    = "sms_dispatcher-${var.environment}"
   role             = aws_iam_role.nib_lambda_execution_role.arn
   handler          = "src.functions.sms_dispatcher.sms_dispatcher.handler"
   runtime          = "python3.13"
@@ -268,14 +268,14 @@ resource "aws_sns_topic_subscription" "sms_dispatcher" {
 # ── Cognito SSM params ────────────────────────────────────────────────────────
 
 resource "aws_ssm_parameter" "cognito_user_pool_id" {
-  name  = "/nib/cognito/user_pool_id"
+  name  = "/nib/${var.environment}/cognito/user_pool_id"
   type  = "String"
   value = module.cognito.user_pool_id
   tags  = local.common_tags
 }
 
 resource "aws_ssm_parameter" "cognito_app_client_id" {
-  name  = "/nib/cognito/app_client_id"
+  name  = "/nib/${var.environment}/cognito/app_client_id"
   type  = "String"
   value = module.cognito.app_client_id
   tags  = local.common_tags
@@ -284,7 +284,7 @@ resource "aws_ssm_parameter" "cognito_app_client_id" {
 resource "aws_lambda_layer_version" "shared_layer" {
   s3_bucket           = var.lambda_artifact_bucket
   s3_key              = "prod/layers/layer.zip"
-  layer_name          = "shared_layer"
+  layer_name          = "shared-layer-${var.environment}"
   compatible_runtimes = ["python3.13"]
   source_code_hash    = filebase64sha256("layer.zip")
 }
@@ -293,7 +293,7 @@ module "lambda_function_send_invite" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
   lambda_s3_key                = "prod/functions/send_invite.zip"
-  lambda_function_name         = "send_invite"
+  lambda_function_name         = "send_invite-${var.environment}"
   source_code_hash             = filebase64sha256("send_invite.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.send_invite.send_invite.handler"
@@ -311,7 +311,7 @@ module "lambda_function_validate_invite" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
   lambda_s3_key                = "prod/functions/validate_invite.zip"
-  lambda_function_name         = "validate_invite"
+  lambda_function_name         = "validate_invite-${var.environment}"
   source_code_hash             = filebase64sha256("validate_invite.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.validate_invite.validate_invite.handler"
@@ -329,7 +329,7 @@ module "lambda_function_register" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
   lambda_s3_key                = "prod/functions/register.zip"
-  lambda_function_name         = "register"
+  lambda_function_name         = "register-${var.environment}"
   source_code_hash             = filebase64sha256("register.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.register.register.handler"
@@ -347,7 +347,7 @@ module "lambda_function_login" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
   lambda_s3_key                = "prod/functions/login.zip"
-  lambda_function_name         = "login"
+  lambda_function_name         = "login-${var.environment}"
   source_code_hash             = filebase64sha256("login.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.login.login.handler"
@@ -365,7 +365,7 @@ module "lambda_function_events" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
   lambda_s3_key                = "prod/functions/events.zip"
-  lambda_function_name         = "events"
+  lambda_function_name         = "events-${var.environment}"
   source_code_hash             = filebase64sha256("events.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.events.events.handler"
@@ -383,7 +383,7 @@ module "lambda_function_payments" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
   lambda_s3_key                = "prod/functions/payments.zip"
-  lambda_function_name         = "payments"
+  lambda_function_name         = "payments-${var.environment}"
   source_code_hash             = filebase64sha256("payments.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.payments.payments.handler"
@@ -401,7 +401,7 @@ module "lambda_function_members" {
   source                       = "../../modules/lambda"
   lambda_artifact_bucket       = var.lambda_artifact_bucket
   lambda_s3_key                = "prod/functions/members.zip"
-  lambda_function_name         = "members"
+  lambda_function_name         = "members-${var.environment}"
   source_code_hash             = filebase64sha256("members.zip")
   lambda_role_arn              = aws_iam_role.nib_lambda_execution_role.arn
   lambda_handler               = "src.functions.members.members.handler"
@@ -420,7 +420,7 @@ module "api_gateway" {
   project               = var.project
   environment           = var.environment
   aws_region            = var.aws_region
-  api_name              = "nib-api"
+  api_name              = "nib-api-${var.environment}"
   cognito_user_pool_id  = module.cognito.user_pool_id
   cognito_app_client_id = module.cognito.app_client_id
 

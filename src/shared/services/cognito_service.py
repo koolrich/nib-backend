@@ -1,3 +1,5 @@
+import os
+
 import boto3
 
 from shared.instrumentation.tracer import tracer
@@ -8,6 +10,10 @@ logger = Logger()
 _cognito_params = {}
 _cognito_client = None
 
+_env = os.environ["ENV"]
+_POOL_ID_PARAM = f"/nib/{_env}/cognito/user_pool_id"
+_CLIENT_ID_PARAM = f"/nib/{_env}/cognito/app_client_id"
+
 
 def _get_cognito_config():
     if _cognito_params:
@@ -15,7 +21,7 @@ def _get_cognito_config():
 
     ssm = boto3.client("ssm")
     response = ssm.get_parameters(
-        Names=["/nib/cognito/user_pool_id", "/nib/cognito/app_client_id"],
+        Names=[_POOL_ID_PARAM, _CLIENT_ID_PARAM],
         WithDecryption=False,
     )
     for param in response["Parameters"]:
@@ -40,7 +46,7 @@ def sign_up(mobile: str, password: str) -> tuple[str, str]:
 
     username = str(_uuid.uuid4())
     response = client.sign_up(
-        ClientId=config["/nib/cognito/app_client_id"],
+        ClientId=config[_CLIENT_ID_PARAM],
         Username=username,
         Password=password,
         UserAttributes=[{"Name": "phone_number", "Value": mobile}],
@@ -52,7 +58,7 @@ def sign_up(mobile: str, password: str) -> tuple[str, str]:
 def confirm_sign_up(username: str):
     config = _get_cognito_config()
     client = _get_client()
-    user_pool_id = config["/nib/cognito/user_pool_id"]
+    user_pool_id = config[_POOL_ID_PARAM]
 
     client.admin_confirm_sign_up(
         UserPoolId=user_pool_id,
@@ -72,7 +78,7 @@ def delete_user(username: str):
     client = _get_client()
 
     client.admin_delete_user(
-        UserPoolId=config["/nib/cognito/user_pool_id"],
+        UserPoolId=config[_POOL_ID_PARAM],
         Username=username,
     )
 
@@ -83,7 +89,7 @@ def refresh_auth(refresh_token: str) -> dict:
     client = _get_client()
 
     response = client.initiate_auth(
-        ClientId=config["/nib/cognito/app_client_id"],
+        ClientId=config[_CLIENT_ID_PARAM],
         AuthFlow="REFRESH_TOKEN_AUTH",
         AuthParameters={"REFRESH_TOKEN": refresh_token},
     )
@@ -96,7 +102,7 @@ def set_password(cognito_username: str, new_password: str):
     config = _get_cognito_config()
     client = _get_client()
     client.admin_set_user_password(
-        UserPoolId=config["/nib/cognito/user_pool_id"],
+        UserPoolId=config[_POOL_ID_PARAM],
         Username=cognito_username,
         Password=new_password,
         Permanent=True,
@@ -110,8 +116,8 @@ def initiate_auth(mobile: str, password: str) -> dict:
     client = _get_client()
 
     response = client.admin_initiate_auth(
-        UserPoolId=config["/nib/cognito/user_pool_id"],
-        ClientId=config["/nib/cognito/app_client_id"],
+        UserPoolId=config[_POOL_ID_PARAM],
+        ClientId=config[_CLIENT_ID_PARAM],
         AuthFlow="ADMIN_USER_PASSWORD_AUTH",
         AuthParameters={
             "USERNAME": mobile,

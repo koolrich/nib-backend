@@ -19,6 +19,9 @@ _twilio_account_sid = None
 _twilio_auth_token = None
 _twilio_from_number = None
 
+_env = os.environ["ENV"]
+_SSM_PREFIX = f"/nib/{_env}/twilio"
+
 
 def _load_twilio_config():
     global _twilio_account_sid, _twilio_auth_token, _twilio_from_number
@@ -26,16 +29,16 @@ def _load_twilio_config():
         return
     params = _ssm.get_parameters(
         Names=[
-            "/nib/twilio/account_sid",
-            "/nib/twilio/auth_token",
-            "/nib/twilio/from_number",
+            f"{_SSM_PREFIX}/account_sid",
+            f"{_SSM_PREFIX}/auth_token",
+            f"{_SSM_PREFIX}/from_number",
         ],
         WithDecryption=True,
     )
     by_name = {p["Name"]: p["Value"] for p in params["Parameters"]}
-    _twilio_account_sid = by_name["/nib/twilio/account_sid"]
-    _twilio_auth_token = by_name["/nib/twilio/auth_token"]
-    _twilio_from_number = by_name["/nib/twilio/from_number"]
+    _twilio_account_sid = by_name[f"{_SSM_PREFIX}/account_sid"]
+    _twilio_auth_token = by_name[f"{_SSM_PREFIX}/auth_token"]
+    _twilio_from_number = by_name[f"{_SSM_PREFIX}/from_number"]
 
 
 def _send_sms(mobile: str, message: str):
