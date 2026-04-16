@@ -1,7 +1,7 @@
 data "aws_security_group" "rds" {
   filter {
     name   = "group-name"
-    values = ["nib-db-sg"]
+    values = ["nib-db-sg-${var.env}"]
   }
   filter {
     name   = "vpc-id"

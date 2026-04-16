@@ -29,7 +29,7 @@ resource "aws_security_group" "vpc_endpoints" {
 data "aws_security_group" "shared_endpoints" {
   filter {
     name   = "group-name"
-    values = ["nib-interface-endpoints-sg"]
+    values = ["nib-interface-endpoints-sg-${var.env}"]
   }
   filter {
     name   = "vpc-id"
