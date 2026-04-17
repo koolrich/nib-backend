@@ -1,5 +1,8 @@
+import os
 import pytest
 from unittest.mock import MagicMock
+
+os.environ.setdefault("ENV", "test")
 
 
 @pytest.fixture
