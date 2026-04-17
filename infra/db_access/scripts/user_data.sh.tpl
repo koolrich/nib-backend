@@ -12,7 +12,8 @@ chmod -R +x /opt/flyway/
 FLYWAY_BIN=$(find /opt -name "flyway" -type f | head -1)
 ln -sf "$FLYWAY_BIN" /usr/local/bin/flyway
 
-mkdir -p /var/log/flyway
+mkdir -p /var/log/flyway /opt/flyway/sql
+chown ec2-user:ec2-user /var/log/flyway /opt/flyway/sql
 
 # ── Write connect-db script ────────────────────────────────────────────────────
 cat > /usr/local/bin/connect-db << 'SCRIPT'
