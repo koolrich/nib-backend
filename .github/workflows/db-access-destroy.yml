@@ -2,6 +2,15 @@ name: DB Access - Terraform Destroy
 
 on:
   workflow_dispatch:
+    inputs:
+      env:
+        description: "Environment to destroy (dev or prod)"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
 
 permissions:
   id-token: write
@@ -34,4 +43,4 @@ jobs:
         run: |
           cd infra/db_access
           terraform init
-          terraform destroy -var-file=tfvars -auto-approve
+          terraform destroy -var="env=${{ github.event.inputs.env }}" -auto-approve

@@ -8,13 +8,13 @@ variable "env" {
   default = "dev"
 }
 
-variable "ami_id" {
+variable "s3_bucket" {
   type        = string
-  description = "AMI ID for the EC2 instance (should have connect-db and migration scripts baked in)"
+  description = "S3 bucket containing Flyway tarball and migration artifacts"
+  default     = "nib-lambda-artifacts"
 }
 
 variable "instance_type" {
   type    = string
   default = "t3.micro"
 }
-

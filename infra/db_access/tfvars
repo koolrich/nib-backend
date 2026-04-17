@@ -1,1 +1,1 @@
-ami_id = "ami-07aa904c32559fb37"
+# env defaults to "dev" — override with -var="env=prod" for production

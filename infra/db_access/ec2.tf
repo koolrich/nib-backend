@@ -1,3 +1,18 @@
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
 resource "aws_security_group" "ec2" {
   name        = "nib-db-access-sg-${var.env}"
   description = "Security group for NIB DB access EC2 instance"
@@ -19,11 +34,18 @@ resource "aws_security_group" "ec2" {
 }
 
 resource "aws_instance" "nib_db_access" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = var.instance_type
   subnet_id              = data.aws_subnet.private.id
   iam_instance_profile   = aws_iam_instance_profile.nib_db_access_profile.name
   vpc_security_group_ids = [aws_security_group.ec2.id]
+
+  user_data = templatefile("${path.module}/scripts/user_data.sh.tpl", {
+    env       = var.env
+    s3_bucket = var.s3_bucket
+  })
+
+  user_data_replace_on_change = true
 
   tags = {
     Name        = "NIBDBAccessInstance-${var.env}"
