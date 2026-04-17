@@ -3,7 +3,7 @@ set -e
 
 # ── Install dependencies ───────────────────────────────────────────────────────
 dnf update -y
-dnf install -y postgresql15 unzip
+dnf install -y postgresql15 java-21-amazon-corretto-headless unzip
 
 # ── Install Flyway from S3 ─────────────────────────────────────────────────────
 aws s3 cp s3://${s3_bucket}/tools/flyway.tar.gz /tmp/flyway.tar.gz
