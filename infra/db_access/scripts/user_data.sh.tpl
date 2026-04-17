@@ -8,7 +8,8 @@ dnf install -y postgresql15 java-21-amazon-corretto-headless unzip
 # ── Install Flyway from S3 ─────────────────────────────────────────────────────
 aws s3 cp s3://${s3_bucket}/tools/flyway.tar.gz /tmp/flyway.tar.gz
 tar -xzf /tmp/flyway.tar.gz -C /opt/
-FLYWAY_BIN=$(find /opt -name "flyway" -type f -executable | head -1)
+chmod -R +x /opt/flyway/
+FLYWAY_BIN=$(find /opt -name "flyway" -type f | head -1)
 ln -sf "$FLYWAY_BIN" /usr/local/bin/flyway
 
 mkdir -p /var/log/flyway
